@@ -1,13 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getMockCandleDataForSymbol } from './core/mockCandleData';
 import { DEFAULT_FUTURES_SYMBOL } from './data/futuresSymbols';
+import { LAYOUT_OPTIONS } from './data/layoutConfigs';
+import { useSavedLayout } from './hooks/useSavedLayout';
 import { useTradovateMarketData } from './hooks/useTradovateMarketData';
 import Chart from './ui/Chart';
+import LayoutSwitcher from './ui/LayoutSwitcher';
+import SidePanel from './ui/SidePanel';
 import SymbolSearch from './ui/SymbolSearch';
 
 const MOBILE_SHEET_STATES = {
   COLLAPSED: 'collapsed',
   EXPANDED: 'expanded',
+};
+
+const MOBILE_SHEET_OFFSETS = {
+  [MOBILE_SHEET_STATES.COLLAPSED]: 220,
+  [MOBILE_SHEET_STATES.EXPANDED]: 0,
 };
 
 function App() {
@@ -19,7 +28,12 @@ function App() {
   const [activeSymbol, setActiveSymbol] = useState(DEFAULT_FUTURES_SYMBOL);
   const [desktopSearchValue, setDesktopSearchValue] = useState('');
   const [mobileSearchValue, setMobileSearchValue] = useState('');
-  const [mobileSheetState, setMobileSheetState] = useState(MOBILE_SHEET_STATES.COLLAPSED);
+  const { activeLayout, activeLayoutId, selectLayout } = useSavedLayout();
+  const [mobileSheetState, setMobileSheetState] = useState(
+    activeLayout.mobile.sheet.defaultState === MOBILE_SHEET_STATES.EXPANDED
+      ? MOBILE_SHEET_STATES.EXPANDED
+      : MOBILE_SHEET_STATES.COLLAPSED,
+  );
 
   const seedData = useMemo(() => getMockCandleDataForSymbol(activeSymbol.root), [activeSymbol.root]);
 
@@ -29,16 +43,21 @@ function App() {
   });
 
   useEffect(() => {
+    setMobileSheetState(
+      activeLayout.mobile.sheet.defaultState === MOBILE_SHEET_STATES.EXPANDED
+        ? MOBILE_SHEET_STATES.EXPANDED
+        : MOBILE_SHEET_STATES.COLLAPSED,
+    );
+  }, [activeLayout.id]);
+
+  useEffect(() => {
     const sheetElement = mobileSheetRef.current;
 
     if (!sheetElement) {
       return;
     }
 
-    sheetElement.style.setProperty(
-      '--sheet-offset',
-      mobileSheetState === MOBILE_SHEET_STATES.EXPANDED ? '0px' : '220px',
-    );
+    sheetElement.style.setProperty('--sheet-offset', `${MOBILE_SHEET_OFFSETS[mobileSheetState]}px`);
   }, [mobileSheetState]);
 
   const onSymbolSelect = (nextSymbol) => {
@@ -50,6 +69,10 @@ function App() {
   };
 
   const onSheetPointerDown = (event) => {
+    if (!activeLayout.mobile.sheet.enabled) {
+      return;
+    }
+
     if (event.pointerType === 'mouse' && event.button !== 0) {
       return;
     }
@@ -62,13 +85,13 @@ function App() {
 
     dragPointerIdRef.current = event.pointerId;
     dragStartYRef.current = event.clientY;
-    dragCurrentOffsetRef.current = mobileSheetState === MOBILE_SHEET_STATES.EXPANDED ? 0 : 220;
+    dragCurrentOffsetRef.current = MOBILE_SHEET_OFFSETS[mobileSheetState];
     sheetElement.setPointerCapture(event.pointerId);
     sheetElement.classList.add('bottom-sheet--dragging');
   };
 
   const onSheetPointerMove = (event) => {
-    if (event.pointerId !== dragPointerIdRef.current) {
+    if (!activeLayout.mobile.sheet.enabled || event.pointerId !== dragPointerIdRef.current) {
       return;
     }
 
@@ -85,7 +108,7 @@ function App() {
   };
 
   const onSheetPointerEnd = (event) => {
-    if (event.pointerId !== dragPointerIdRef.current) {
+    if (!activeLayout.mobile.sheet.enabled || event.pointerId !== dragPointerIdRef.current) {
       return;
     }
 
@@ -98,15 +121,19 @@ function App() {
     const rawOffset = Number.parseFloat(
       getComputedStyle(sheetElement).getPropertyValue('--sheet-offset').replace('px', ''),
     );
-    const nextState = rawOffset > 110 ? MOBILE_SHEET_STATES.COLLAPSED : MOBILE_SHEET_STATES.EXPANDED;
 
     dragPointerIdRef.current = null;
     sheetElement.classList.remove('bottom-sheet--dragging');
     sheetElement.releasePointerCapture(event.pointerId);
-    setMobileSheetState(nextState);
+
+    setMobileSheetState(rawOffset > 110 ? MOBILE_SHEET_STATES.COLLAPSED : MOBILE_SHEET_STATES.EXPANDED);
   };
 
   const toggleMobileSheet = () => {
+    if (!activeLayout.mobile.sheet.enabled) {
+      return;
+    }
+
     setMobileSheetState((currentState) =>
       currentState === MOBILE_SHEET_STATES.EXPANDED
         ? MOBILE_SHEET_STATES.COLLAPSED
@@ -115,70 +142,98 @@ function App() {
   };
 
   return (
-    <main className="app-shell">
-      <section className="chart-panel">
+    <main className={`app-shell app-shell--${activeLayoutId}`}>
+      <section className={`chart-panel ${activeLayout.desktop.chart.className} ${activeLayout.mobile.chart.className}`}>
         <Chart ref={chartApiRef} initialData={seedData} />
-        <div className="desktop-symbol-search" aria-label="Desktop symbol search">
-          <SymbolSearch
-            inputId="desktop-symbol-search"
-            value={desktopSearchValue}
-            onValueChange={setDesktopSearchValue}
-            activeRoot={activeSymbol.root}
-            onSymbolSelect={onSymbolSelect}
+
+        {activeLayout.desktop.searchSurface.visible ? (
+          <div className="desktop-symbol-search" aria-label="Desktop symbol search">
+            <SymbolSearch
+              inputId="desktop-symbol-search"
+              value={desktopSearchValue}
+              onValueChange={setDesktopSearchValue}
+              activeRoot={activeSymbol.root}
+              onSymbolSelect={onSymbolSelect}
+            />
+          </div>
+        ) : null}
+
+        <div className="desktop-layout-switcher">
+          <LayoutSwitcher
+            options={LAYOUT_OPTIONS}
+            activeLayoutId={activeLayoutId}
+            onSelectLayout={selectLayout}
+            compact
           />
         </div>
       </section>
-      <aside className="right-panel" aria-label="Chart tools panel">
-        <div className="panel-card">
-          <h2>Active Contract</h2>
-          <p>
-            {activeSymbol.root} · {activeSymbol.contract}
-          </p>
-        </div>
-        <div className="panel-card">
-          <h2>Order Ticket</h2>
-          <p>Panel content can be replaced with your existing controls.</p>
-        </div>
-      </aside>
 
-      <section
-        ref={mobileSheetRef}
-        className="bottom-sheet"
-        aria-label="Mobile panel"
-        onPointerDown={onSheetPointerDown}
-        onPointerMove={onSheetPointerMove}
-        onPointerUp={onSheetPointerEnd}
-        onPointerCancel={onSheetPointerEnd}
-      >
-        <header className="bottom-sheet__header">
-          <button type="button" className="bottom-sheet__grab" onClick={toggleMobileSheet}>
-            <span className="bottom-sheet__handle" />
-            <span className="bottom-sheet__title">Symbol Search</span>
+      {activeLayout.desktop.sidePanel.visible ? <SidePanel activeSymbol={activeSymbol} /> : null}
+
+      {activeLayout.mobile.sheet.enabled ? (
+        <section
+          ref={mobileSheetRef}
+          className="bottom-sheet"
+          aria-label="Mobile panel"
+          onPointerDown={onSheetPointerDown}
+          onPointerMove={onSheetPointerMove}
+          onPointerUp={onSheetPointerEnd}
+          onPointerCancel={onSheetPointerEnd}
+        >
+          <header className="bottom-sheet__header">
+            <button type="button" className="bottom-sheet__grab" onClick={toggleMobileSheet}>
+              <span className="bottom-sheet__handle" />
+              <span className="bottom-sheet__title">Workspace</span>
+            </button>
+          </header>
+          <div className="bottom-sheet__content">
+            {activeLayout.mobile.searchSurface.visible ? (
+              <SymbolSearch
+                mobile
+                inputId="mobile-symbol-search"
+                value={mobileSearchValue}
+                onValueChange={setMobileSearchValue}
+                activeRoot={activeSymbol.root}
+                onSymbolSelect={onSymbolSelect}
+              />
+            ) : null}
+            {activeLayout.mobile.sidePanel.visible ? <SidePanel activeSymbol={activeSymbol} /> : null}
+            <LayoutSwitcher
+              options={LAYOUT_OPTIONS}
+              activeLayoutId={activeLayoutId}
+              onSelectLayout={selectLayout}
+            />
+          </div>
+        </section>
+      ) : (
+        <div className="mobile-layout-switcher">
+          <LayoutSwitcher
+            options={LAYOUT_OPTIONS}
+            activeLayoutId={activeLayoutId}
+            onSelectLayout={selectLayout}
+            compact
+          />
+        </div>
+      )}
+
+      {activeLayout.desktop.floatingControls.visible || activeLayout.mobile.floatingControls.visible ? (
+        <nav
+          className={`floating-actions${
+            activeLayout.desktop.floatingControls.visible ? '' : ' floating-actions--desktop-hidden'
+          }`}
+          aria-label="Quick actions"
+        >
+          <button type="button" aria-label="Trendline tool" title="Trendline tool">
+            ╱
           </button>
-        </header>
-        <div className="bottom-sheet__content">
-          <SymbolSearch
-            mobile
-            inputId="mobile-symbol-search"
-            value={mobileSearchValue}
-            onValueChange={setMobileSearchValue}
-            activeRoot={activeSymbol.root}
-            onSymbolSelect={onSymbolSelect}
-          />
-        </div>
-      </section>
-
-      <nav className="floating-actions" aria-label="Quick actions">
-        <button type="button" aria-label="Trendline tool" title="Trendline tool">
-          ╱
-        </button>
-        <button type="button" aria-label="Fibonacci tool" title="Fibonacci tool">
-          ƒ
-        </button>
-        <button type="button" aria-label="Crosshair tool" title="Crosshair tool">
-          ⊕
-        </button>
-      </nav>
+          <button type="button" aria-label="Fibonacci tool" title="Fibonacci tool">
+            ƒ
+          </button>
+          <button type="button" aria-label="Crosshair tool" title="Crosshair tool">
+            ⊕
+          </button>
+        </nav>
+      ) : null}
     </main>
   );
 }
