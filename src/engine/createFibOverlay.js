@@ -1,4 +1,4 @@
-const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+import { FIB_LEVELS, buildDomainPoint, clamp, resolveFibLevelY } from '../core/fibMath';
 
 const COLORS = {
   line: '#f59e0b',
@@ -9,20 +9,12 @@ const COLORS = {
   anchorStroke: '#f59e0b',
 };
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
 function createCanvas(container) {
   const canvas = document.createElement('canvas');
   canvas.className = 'fib-overlay-canvas';
   canvas.style.touchAction = 'none';
   container.appendChild(canvas);
   return canvas;
-}
-
-function buildPoint(time, price) {
-  return { time, price };
 }
 
 export function createFibOverlay({ container, chart, series }) {
@@ -76,7 +68,7 @@ export function createFibOverlay({ container, chart, series }) {
       return null;
     }
 
-    return buildPoint(time, price);
+    return buildDomainPoint(time, price);
   }
 
   function ensureAnchors() {
@@ -144,7 +136,7 @@ export function createFibOverlay({ container, chart, series }) {
     ctx.lineWidth = 1;
 
     FIB_LEVELS.forEach((level) => {
-      const y = start.y + deltaY * level;
+      const y = resolveFibLevelY(start.y, deltaY, level);
 
       ctx.beginPath();
       ctx.moveTo(minX, y);
