@@ -2,13 +2,13 @@ import { useEffect, useMemo, useRef } from 'react';
 import { createCandleEngine } from '../core/candleEngine';
 import { extractQuotePayload, priceFromQuotePayload, resolveQuoteTimestamp } from '../core/marketData';
 
-
 export function useTradovateMarketData(
   chartApiRef,
   { seedData = [], symbol = 'ESM6', interval = '1m' } = {}
 ) {
   const candleEngineRef = useRef(createCandleEngine({ interval, seedCandles: seedData }));
   const socketRef = useRef(null);
+  const hasAppliedInitialFitRef = useRef(false);
 
   const config = useMemo(
     () => ({
@@ -21,11 +21,25 @@ export function useTradovateMarketData(
   );
 
   useEffect(() => {
+    const chartApi = chartApiRef.current;
+
     candleEngineRef.current = createCandleEngine({ interval: config.interval, seedCandles: seedData });
 
-    if (chartApiRef.current?.isReady()) {
-      chartApiRef.current.setData(candleEngineRef.current.getCandles());
-      chartApiRef.current.fitContent();
+    if (!chartApi?.isReady()) {
+      return;
+    }
+
+    const visibleRange = chartApi.getVisibleLogicalRange?.();
+    chartApi.setData(candleEngineRef.current.getCandles());
+
+    if (visibleRange) {
+      chartApi.setVisibleLogicalRange?.(visibleRange);
+      return;
+    }
+
+    if (!hasAppliedInitialFitRef.current) {
+      chartApi.fitContent();
+      hasAppliedInitialFitRef.current = true;
     }
   }, [chartApiRef, config.interval, config.symbol, seedData]);
 
@@ -39,7 +53,6 @@ export function useTradovateMarketData(
       }
 
       chartApiRef.current.setData(candleEngineRef.current.getCandles());
-      chartApiRef.current.fitContent();
 
       if (!config.token) {
         console.warn('Tradovate market data stream disabled: set VITE_TRADOVATE_ACCESS_TOKEN.');

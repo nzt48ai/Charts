@@ -57,6 +57,20 @@ export function useChartController(forwardedRef, initialData) {
 
         seriesRef.current.setData(candles);
       },
+      getVisibleLogicalRange: () => {
+        if (!chartRef.current) {
+          return null;
+        }
+
+        return chartRef.current.timeScale().getVisibleLogicalRange();
+      },
+      setVisibleLogicalRange: (range) => {
+        if (!chartRef.current || !range) {
+          return;
+        }
+
+        chartRef.current.timeScale().setVisibleLogicalRange(range);
+      },
       update: (candle) => {
         if (!seriesRef.current) {
           return;
