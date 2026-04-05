@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getMockCandleDataForSymbol } from './core/mockCandleData';
 import { DEFAULT_FUTURES_SYMBOL } from './data/futuresSymbols';
+import { TIMEFRAME_CONFIGS } from './core/timeframes';
 import { LAYOUT_OPTIONS } from './data/layoutConfigs';
 import { useSavedLayout } from './hooks/useSavedLayout';
+import { useSavedTimeframe } from './hooks/useSavedTimeframe';
 import { useTradovateMarketData } from './hooks/useTradovateMarketData';
 import Chart from './ui/Chart';
 import LayoutSwitcher from './ui/LayoutSwitcher';
 import SidePanel from './ui/SidePanel';
 import SymbolSearch from './ui/SymbolSearch';
+import TimeframeSwitcher from './ui/TimeframeSwitcher';
 
 const MOBILE_SHEET_STATES = {
   COLLAPSED: 'collapsed',
@@ -29,6 +32,7 @@ function App() {
   const [desktopSearchValue, setDesktopSearchValue] = useState('');
   const [mobileSearchValue, setMobileSearchValue] = useState('');
   const { activeLayout, activeLayoutId, selectLayout } = useSavedLayout();
+  const { activeTimeframeId, selectTimeframe } = useSavedTimeframe();
   const [mobileSheetState, setMobileSheetState] = useState(
     activeLayout.mobile.sheet.defaultState === MOBILE_SHEET_STATES.EXPANDED
       ? MOBILE_SHEET_STATES.EXPANDED
@@ -40,6 +44,7 @@ function App() {
   useTradovateMarketData(chartApiRef, {
     seedData,
     symbol: activeSymbol.contract,
+    timeframe: activeTimeframeId,
   });
 
   useEffect(() => {
@@ -166,6 +171,15 @@ function App() {
             compact
           />
         </div>
+
+        <div className="desktop-timeframe-switcher">
+          <TimeframeSwitcher
+            options={TIMEFRAME_CONFIGS}
+            activeTimeframeId={activeTimeframeId}
+            onSelectTimeframe={selectTimeframe}
+            compact
+          />
+        </div>
       </section>
 
       {activeLayout.desktop.sidePanel.visible ? <SidePanel activeSymbol={activeSymbol} /> : null}
@@ -198,6 +212,11 @@ function App() {
               />
             ) : null}
             {activeLayout.mobile.sidePanel.visible ? <SidePanel activeSymbol={activeSymbol} /> : null}
+            <TimeframeSwitcher
+              options={TIMEFRAME_CONFIGS}
+              activeTimeframeId={activeTimeframeId}
+              onSelectTimeframe={selectTimeframe}
+            />
             <LayoutSwitcher
               options={LAYOUT_OPTIONS}
               activeLayoutId={activeLayoutId}
@@ -206,14 +225,24 @@ function App() {
           </div>
         </section>
       ) : (
-        <div className="mobile-layout-switcher">
-          <LayoutSwitcher
-            options={LAYOUT_OPTIONS}
-            activeLayoutId={activeLayoutId}
-            onSelectLayout={selectLayout}
-            compact
-          />
-        </div>
+        <>
+          <div className="mobile-layout-switcher">
+            <LayoutSwitcher
+              options={LAYOUT_OPTIONS}
+              activeLayoutId={activeLayoutId}
+              onSelectLayout={selectLayout}
+              compact
+            />
+          </div>
+          <div className="mobile-timeframe-switcher">
+            <TimeframeSwitcher
+              options={TIMEFRAME_CONFIGS}
+              activeTimeframeId={activeTimeframeId}
+              onSelectTimeframe={selectTimeframe}
+              compact
+            />
+          </div>
+        </>
       )}
 
       {activeLayout.desktop.floatingControls.visible || activeLayout.mobile.floatingControls.visible ? (
