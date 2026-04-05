@@ -4,9 +4,12 @@ import { DEFAULT_FUTURES_SYMBOL } from './data/futuresSymbols';
 import { TIMEFRAME_CONFIGS } from './core/timeframes';
 import { LAYOUT_OPTIONS } from './data/layoutConfigs';
 import { useSavedLayout } from './hooks/useSavedLayout';
+import { useSavedCrosshairSettings } from './hooks/useSavedCrosshairSettings';
 import { useSavedTimeframe } from './hooks/useSavedTimeframe';
 import { useTradovateMarketData } from './hooks/useTradovateMarketData';
+import { buildCrosshairChartOptions } from './core/crosshairSettings';
 import Chart from './ui/Chart';
+import CrosshairSettingsPanel from './ui/CrosshairSettingsPanel';
 import LayoutSwitcher from './ui/LayoutSwitcher';
 import SidePanel from './ui/SidePanel';
 import SymbolSearch from './ui/SymbolSearch';
@@ -33,6 +36,11 @@ function App() {
   const [mobileSearchValue, setMobileSearchValue] = useState('');
   const { activeLayout, activeLayoutId, selectLayout } = useSavedLayout();
   const { activeTimeframeId, selectTimeframe } = useSavedTimeframe();
+  const { crosshairSettings, updateLineColor, updateLineOpacity } = useSavedCrosshairSettings();
+  const crosshairChartOptions = useMemo(
+    () => buildCrosshairChartOptions(crosshairSettings),
+    [crosshairSettings],
+  );
   const [mobileSheetState, setMobileSheetState] = useState(
     activeLayout.mobile.sheet.defaultState === MOBILE_SHEET_STATES.EXPANDED
       ? MOBILE_SHEET_STATES.EXPANDED
@@ -149,7 +157,7 @@ function App() {
   return (
     <main className={`app-shell app-shell--${activeLayoutId}`}>
       <section className={`chart-panel ${activeLayout.desktop.chart.className} ${activeLayout.mobile.chart.className}`}>
-        <Chart ref={chartApiRef} initialData={seedData} />
+        <Chart ref={chartApiRef} initialData={seedData} chartOptions={crosshairChartOptions} />
 
         {activeLayout.desktop.searchSurface.visible ? (
           <div className="desktop-symbol-search" aria-label="Desktop symbol search">
@@ -177,6 +185,16 @@ function App() {
             options={TIMEFRAME_CONFIGS}
             activeTimeframeId={activeTimeframeId}
             onSelectTimeframe={selectTimeframe}
+            compact
+          />
+        </div>
+
+        <div className="desktop-crosshair-settings">
+          <CrosshairSettingsPanel
+            idPrefix="desktop-crosshair"
+            settings={crosshairSettings}
+            onColorChange={updateLineColor}
+            onOpacityChange={updateLineOpacity}
             compact
           />
         </div>
@@ -221,6 +239,13 @@ function App() {
               options={LAYOUT_OPTIONS}
               activeLayoutId={activeLayoutId}
               onSelectLayout={selectLayout}
+            />
+            <CrosshairSettingsPanel
+              idPrefix="mobile-crosshair"
+              settings={crosshairSettings}
+              onColorChange={updateLineColor}
+              onOpacityChange={updateLineOpacity}
+              title="Crosshair"
             />
           </div>
         </section>

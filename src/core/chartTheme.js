@@ -1,3 +1,7 @@
+import { buildCrosshairChartOptions } from './crosshairSettings';
+
+const defaultCrosshairOptions = buildCrosshairChartOptions(undefined).crosshair;
+
 export const chartTheme = {
   background: '#0b0e13',
   textColor: '#cbd5e1',
@@ -20,13 +24,14 @@ export const chartOptions = {
     borderColor: chartTheme.gridColor,
   },
   crosshair: {
+    ...defaultCrosshairOptions,
     vertLine: {
-      color: '#94a3b8',
+      ...defaultCrosshairOptions.vertLine,
       width: 1,
       style: 2,
     },
     horzLine: {
-      color: '#94a3b8',
+      ...defaultCrosshairOptions.horzLine,
       width: 1,
       style: 2,
     },
