@@ -108,8 +108,7 @@ body,
 }
 
 .floating-actions {
-  display: grid;
-  gap: 12px;
+  display: block;
   position: fixed;
   right: var(--space-3);
   bottom: var(--space-3);
@@ -118,20 +117,6 @@ body,
 
 .floating-actions--desktop-hidden {
   display: none;
-}
-
-.floating-actions button {
-  width: 56px;
-  height: 56px;
-  border: 1px solid var(--panel-border);
-  border-radius: 18px;
-  background: rgba(15, 23, 35, 0.88);
-  backdrop-filter: blur(calc(var(--panel-blur) - 1px));
-  -webkit-backdrop-filter: blur(calc(var(--panel-blur) - 1px));
-  color: rgba(229, 231, 235, 0.95);
-  font-size: 1.2rem;
-  cursor: pointer;
-  touch-action: manipulation;
 }
 
 .desktop-layout-switcher {
@@ -518,8 +503,7 @@ body,
   }
 
   .floating-actions {
-    display: grid;
-    gap: 12px;
+    display: block;
     position: fixed;
     right: var(--space-3);
     bottom: calc(280px + var(--space-3));
@@ -527,7 +511,7 @@ body,
   }
 
   .floating-actions--desktop-hidden {
-    display: grid;
+    display: block;
   }
 }
 
@@ -586,8 +570,7 @@ body,
   cursor: pointer;
 }
 
-.fib-tools__button--active,
-.floating-actions button.is-active {
+.fib-tools__button--active {
   border-color: rgba(148, 163, 184, 0.54);
   background: rgba(51, 65, 85, 0.7);
 }
@@ -654,4 +637,64 @@ body,
     bottom: calc(env(safe-area-inset-bottom) + 170px);
     z-index: 11;
   }
+}
+
+.drawing-toolbar {
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.18) 0%, rgba(15, 23, 35, 0.12) 100%), var(--panel-bg-strong);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  box-shadow: var(--panel-shadow);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  min-width: 290px;
+}
+
+.drawing-toolbar--compact {
+  min-width: min(320px, calc(100vw - 2 * var(--space-3)));
+}
+
+.drawing-toolbar__row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.drawing-toolbar__row + .drawing-toolbar__row {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.drawing-toolbar__button {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 35, 0.62);
+  color: rgba(226, 232, 240, 0.9);
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.drawing-toolbar__button:disabled {
+  opacity: 0.48;
+  cursor: default;
+}
+
+.drawing-toolbar__button--active {
+  border-color: rgba(148, 163, 184, 0.54);
+  background: rgba(51, 65, 85, 0.7);
+}
+
+.drawing-toolbar__magnet {
+  display: grid;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.drawing-toolbar__magnet input[type='range'] {
+  width: 100%;
+  accent-color: #94a3b8;
 }
