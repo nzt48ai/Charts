@@ -1,9 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-
-function normalizeTimestamp(epochMillis, intervalSeconds) {
-  const epochSeconds = Math.floor(epochMillis / 1000);
-  return Math.floor(epochSeconds / intervalSeconds) * intervalSeconds;
-}
+import { createCandleEngine } from '../core/candleEngine';
 
 function priceFromPayload(payload) {
   if (typeof payload.last === 'number') {
@@ -21,34 +17,11 @@ function priceFromPayload(payload) {
   return null;
 }
 
-function updateCandles(candlesRef, nextPrice, epochMillis, intervalSeconds) {
-  const candles = candlesRef.current;
-
-  if (candles.length === 0) {
-    const time = normalizeTimestamp(epochMillis, intervalSeconds);
-    const seedCandle = { time, open: nextPrice, high: nextPrice, low: nextPrice, close: nextPrice };
-    candles.push(seedCandle);
-    return seedCandle;
-  }
-
-  const lastCandle = candles[candles.length - 1];
-  const bucketTime = normalizeTimestamp(epochMillis, intervalSeconds);
-
-  if (lastCandle.time !== bucketTime) {
-    const nextCandle = { time: bucketTime, open: lastCandle.close, high: nextPrice, low: nextPrice, close: nextPrice };
-    candles.push(nextCandle);
-    return nextCandle;
-  }
-
-  lastCandle.high = Math.max(lastCandle.high, nextPrice);
-  lastCandle.low = Math.min(lastCandle.low, nextPrice);
-  lastCandle.close = nextPrice;
-
-  return { ...lastCandle };
-}
-
-export function useTradovateMarketData(chartApiRef, { seedData = [], symbol = 'ESM6', intervalSeconds = 60 } = {}) {
-  const candlesRef = useRef(seedData.map((candle) => ({ ...candle })));
+export function useTradovateMarketData(
+  chartApiRef,
+  { seedData = [], symbol = 'ESM6', interval = '1m' } = {}
+) {
+  const candleEngineRef = useRef(createCandleEngine({ interval, seedCandles: seedData }));
   const socketRef = useRef(null);
 
   const config = useMemo(
@@ -56,10 +29,14 @@ export function useTradovateMarketData(chartApiRef, { seedData = [], symbol = 'E
       endpoint: import.meta.env.VITE_TRADOVATE_MD_URL ?? 'wss://md.tradovateapi.com/v1/websocket',
       token: import.meta.env.VITE_TRADOVATE_ACCESS_TOKEN,
       symbol: import.meta.env.VITE_TRADOVATE_SYMBOL ?? symbol,
-      intervalSeconds,
+      interval,
     }),
-    [intervalSeconds, symbol]
+    [interval, symbol]
   );
+
+  useEffect(() => {
+    candleEngineRef.current = createCandleEngine({ interval: config.interval, seedCandles: seedData });
+  }, [config.interval, seedData]);
 
   useEffect(() => {
     let isDisposed = false;
@@ -70,7 +47,7 @@ export function useTradovateMarketData(chartApiRef, { seedData = [], symbol = 'E
         return;
       }
 
-      chartApiRef.current.setData(candlesRef.current);
+      chartApiRef.current.setData(candleEngineRef.current.getCandles());
       chartApiRef.current.fitContent();
 
       if (!config.token) {
@@ -108,9 +85,14 @@ export function useTradovateMarketData(chartApiRef, { seedData = [], symbol = 'E
           }
 
           const ts = quotePayload.timestamp ?? quotePayload.time ?? Date.now();
-          const candleUpdate = updateCandles(candlesRef, nextPrice, Number(ts), config.intervalSeconds);
+          const candleUpdate = candleEngineRef.current.upsertFromTick({
+            price: nextPrice,
+            timestamp: Number(ts),
+          });
 
-          chartApiRef.current?.update(candleUpdate);
+          if (candleUpdate) {
+            chartApiRef.current?.update(candleUpdate);
+          }
         } catch (error) {
           console.warn('Unable to parse Tradovate market data payload.', error);
         }
@@ -136,5 +118,5 @@ export function useTradovateMarketData(chartApiRef, { seedData = [], symbol = 'E
     };
   }, [chartApiRef, config]);
 
-  return { candlesRef, socketRef };
+  return { candleEngineRef, socketRef };
 }
