@@ -102,6 +102,13 @@ function normalizeToolConfigForType(type, rawConfig = {}) {
   return null;
 }
 
+function normalizeDrawingLayer(rawLayer = {}) {
+  return {
+    groupId: typeof rawLayer.groupId === 'string' ? rawLayer.groupId : null,
+    zIndex: Number.isInteger(rawLayer.zIndex) ? rawLayer.zIndex : 0,
+  };
+}
+
 export function normalizeFibToolConfigs(rawConfigs = {}) {
   return {
     [DRAWING_TYPES.FIB_PRICE]: normalizeToolConfigForType(DRAWING_TYPES.FIB_PRICE, rawConfigs[DRAWING_TYPES.FIB_PRICE]),
@@ -136,11 +143,14 @@ export function normalizeFibDrawing(rawDrawing) {
     return null;
   }
 
+  const layer = normalizeDrawingLayer(rawDrawing.layer);
+
   return {
     id: typeof rawDrawing.id === 'string' ? rawDrawing.id : `${rawDrawing.type}-${Date.now()}`,
     type: rawDrawing.type,
     anchors,
     config: normalizeToolConfigForType(rawDrawing.type, rawDrawing.config),
+    layer,
   };
 }
 
@@ -151,5 +161,19 @@ export function normalizeFibDrawings(rawDrawings = []) {
 
   return rawDrawings
     .map((drawing) => normalizeFibDrawing(drawing))
-    .filter(Boolean);
+    .filter(Boolean)
+    .sort((a, b) => a.layer.zIndex - b.layer.zIndex);
+}
+
+export function withNormalizedZOrder(drawings) {
+  return drawings
+    .slice()
+    .sort((a, b) => a.layer.zIndex - b.layer.zIndex)
+    .map((drawing, index) => ({
+      ...drawing,
+      layer: {
+        ...drawing.layer,
+        zIndex: index,
+      },
+    }));
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { buildCrosshairChartOptions } from './core/crosshairSettings';
-import { FIB_DRAWING_TYPES, normalizeFibToolConfigs } from './core/fibDrawings';
+import { normalizeFibToolConfigs } from './core/fibDrawings';
 import { getMockCandleDataForSymbol } from './core/mockCandleData';
 import { TIMEFRAME_CONFIGS } from './core/timeframes';
 import { LAYOUT_OPTIONS } from './data/layoutConfigs';
@@ -12,6 +12,7 @@ import { useSavedTimeframe } from './hooks/useSavedTimeframe';
 import { useTradovateMarketData } from './hooks/useTradovateMarketData';
 import Chart from './ui/Chart';
 import CrosshairSettingsPanel from './ui/CrosshairSettingsPanel';
+import DrawingToolbar from './ui/DrawingToolbar';
 import FibToolPanel from './ui/FibToolPanel';
 import LayoutSwitcher from './ui/LayoutSwitcher';
 import SidePanel from './ui/SidePanel';
@@ -38,6 +39,12 @@ function App() {
   const [desktopSearchValue, setDesktopSearchValue] = useState('');
   const [mobileSearchValue, setMobileSearchValue] = useState('');
   const [activeDrawingTool, setActiveDrawingTool] = useState(null);
+  const [drawingInteractionState, setDrawingInteractionState] = useState({
+    canUndo: false,
+    canRedo: false,
+    selectedCount: 0,
+    magnetStrength: 35,
+  });
   const [fibToolConfigs, setFibToolConfigs] = useState(() => normalizeFibToolConfigs());
   const { activeLayout, activeLayoutId, selectLayout } = useSavedLayout();
   const { activeTimeframeId, selectTimeframe } = useSavedTimeframe();
@@ -173,6 +180,27 @@ function App() {
     );
   };
 
+  const onDrawingToolbarAction = (action, payload) => {
+    const chartApi = chartApiRef.current;
+    if (action === 'setTool') {
+      setActiveDrawingTool(payload);
+      return;
+    }
+
+    if (!chartApi) {
+      return;
+    }
+
+    if (action === 'undo') chartApi.undoDrawing?.();
+    if (action === 'redo') chartApi.redoDrawing?.();
+    if (action === 'delete') chartApi.deleteSelectedDrawings?.();
+    if (action === 'group') chartApi.groupSelectedDrawings?.();
+    if (action === 'ungroup') chartApi.ungroupSelectedDrawings?.();
+    if (action === 'front') chartApi.bringSelectionToFront?.();
+    if (action === 'back') chartApi.sendSelectionToBack?.();
+    if (action === 'magnet') chartApi.setMagnetStrength?.(payload);
+  };
+
   return (
     <main className={`app-shell app-shell--${activeLayoutId}`}>
       <section className={`chart-panel ${activeLayout.desktop.chart.className} ${activeLayout.mobile.chart.className}`}>
@@ -184,6 +212,7 @@ function App() {
           fibToolConfigs={fibToolConfigs}
           fibDrawings={activeDrawings}
           onFibDrawingsChange={setActiveDrawings}
+          onDrawingInteractionStateChange={setDrawingInteractionState}
         />
 
         {activeLayout.desktop.searchSurface.visible ? (
@@ -326,39 +355,18 @@ function App() {
       )}
 
       {activeLayout.desktop.floatingControls.visible || activeLayout.mobile.floatingControls.visible ? (
-        <nav
+        <div
           className={`floating-actions${
             activeLayout.desktop.floatingControls.visible ? '' : ' floating-actions--desktop-hidden'
           }`}
-          aria-label="Quick actions"
         >
-          <button
-            type="button"
-            className={activeDrawingTool === FIB_DRAWING_TYPES.FIB_PRICE ? 'is-active' : ''}
-            aria-label="Fibonacci price tool"
-            title="Fibonacci price tool"
-            onClick={() =>
-              setActiveDrawingTool((current) =>
-                current === FIB_DRAWING_TYPES.FIB_PRICE ? null : FIB_DRAWING_TYPES.FIB_PRICE,
-              )
-            }
-          >
-            P
-          </button>
-          <button
-            type="button"
-            className={activeDrawingTool === FIB_DRAWING_TYPES.FIB_TIME ? 'is-active' : ''}
-            aria-label="Fibonacci time tool"
-            title="Fibonacci time tool"
-            onClick={() =>
-              setActiveDrawingTool((current) =>
-                current === FIB_DRAWING_TYPES.FIB_TIME ? null : FIB_DRAWING_TYPES.FIB_TIME,
-              )
-            }
-          >
-            T
-          </button>
-        </nav>
+          <DrawingToolbar
+            activeTool={activeDrawingTool}
+            interactionState={drawingInteractionState}
+            onAction={onDrawingToolbarAction}
+            compact
+          />
+        </div>
       ) : null}
     </main>
   );

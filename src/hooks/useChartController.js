@@ -5,12 +5,13 @@ import { useChartResize } from './useChartResize';
 
 export function useChartController(
   forwardedRef,
-  { initialData, chartOptions, drawingTool, fibToolConfigs, fibDrawings, onFibDrawingsChange },
+  { initialData, chartOptions, drawingTool, fibToolConfigs, fibDrawings, onFibDrawingsChange, onInteractionStateChange },
 ) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
   const fibOverlayRef = useRef(null);
+  const candlesRef = useRef(initialData ?? []);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -24,6 +25,7 @@ export function useChartController(
       series: candlestickSeries,
       initialDrawings: fibDrawings,
       onDrawingsChange: onFibDrawingsChange,
+      onInteractionStateChange,
     });
 
     chartRef.current = chart;
@@ -31,7 +33,9 @@ export function useChartController(
     fibOverlayRef.current = fibOverlay;
 
     if (initialData.length > 0) {
+      candlesRef.current = initialData;
       candlestickSeries.setData(initialData);
+      fibOverlay.setCandles(initialData);
       chart.timeScale().fitContent();
     }
 
@@ -49,7 +53,9 @@ export function useChartController(
       return;
     }
 
+    candlesRef.current = initialData;
     seriesRef.current.setData(initialData);
+    fibOverlayRef.current?.setCandles(initialData);
   }, [initialData]);
 
   useEffect(() => {
@@ -87,7 +93,9 @@ export function useChartController(
           return;
         }
 
+        candlesRef.current = candles;
         seriesRef.current.setData(candles);
+        fibOverlayRef.current?.setCandles(candles);
       },
       getVisibleLogicalRange: () => {
         if (!chartRef.current) {
@@ -108,7 +116,21 @@ export function useChartController(
           return;
         }
 
+        const nextCandles = candlesRef.current.slice();
+        if (nextCandles.length === 0) {
+          nextCandles.push(candle);
+        } else {
+          const last = nextCandles[nextCandles.length - 1];
+          if (last.time === candle.time) {
+            nextCandles[nextCandles.length - 1] = candle;
+          } else {
+            nextCandles.push(candle);
+          }
+        }
+
+        candlesRef.current = nextCandles;
         seriesRef.current.update(candle);
+        fibOverlayRef.current?.setCandles(nextCandles);
       },
       fitContent: () => {
         if (!chartRef.current) {
@@ -124,6 +146,14 @@ export function useChartController(
 
         chartRef.current.applyOptions(options);
       },
+      undoDrawing: () => fibOverlayRef.current?.undo(),
+      redoDrawing: () => fibOverlayRef.current?.redo(),
+      deleteSelectedDrawings: () => fibOverlayRef.current?.deleteSelection(),
+      groupSelectedDrawings: () => fibOverlayRef.current?.groupSelection(),
+      ungroupSelectedDrawings: () => fibOverlayRef.current?.ungroupSelection(),
+      bringSelectionToFront: () => fibOverlayRef.current?.bringToFront(),
+      sendSelectionToBack: () => fibOverlayRef.current?.sendToBack(),
+      setMagnetStrength: (value) => fibOverlayRef.current?.setMagnetStrength(value),
     }),
     [],
   );
