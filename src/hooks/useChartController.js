@@ -5,7 +5,16 @@ import { useChartResize } from './useChartResize';
 
 export function useChartController(
   forwardedRef,
-  { initialData, chartOptions, drawingTool, fibToolConfigs, fibDrawings, onFibDrawingsChange, onInteractionStateChange },
+  {
+    initialData,
+    chartOptions,
+    drawingTool,
+    fibToolConfigs,
+    fibDrawings,
+    magnetStrength,
+    onFibDrawingsChange,
+    onInteractionStateChange,
+  },
 ) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
@@ -23,6 +32,7 @@ export function useChartController(
       container: containerRef.current,
       chart,
       series: candlestickSeries,
+      initialMagnetStrength: magnetStrength,
       initialDrawings: fibDrawings,
       onDrawingsChange: onFibDrawingsChange,
       onInteractionStateChange,
@@ -81,6 +91,10 @@ export function useChartController(
   useEffect(() => {
     fibOverlayRef.current?.setDrawings(fibDrawings);
   }, [fibDrawings]);
+
+  useEffect(() => {
+    fibOverlayRef.current?.setMagnetStrength(magnetStrength);
+  }, [magnetStrength]);
 
   useChartResize(containerRef, chartRef);
 

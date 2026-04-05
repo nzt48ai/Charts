@@ -8,6 +8,7 @@ const Chart = forwardRef(function Chart(
     drawingTool = null,
     fibToolConfigs = null,
     fibDrawings = [],
+    magnetStrength = 35,
     onFibDrawingsChange,
     onDrawingInteractionStateChange,
   },
@@ -19,6 +20,7 @@ const Chart = forwardRef(function Chart(
     drawingTool,
     fibToolConfigs,
     fibDrawings,
+    magnetStrength,
     onFibDrawingsChange,
     onInteractionStateChange: onDrawingInteractionStateChange,
   });

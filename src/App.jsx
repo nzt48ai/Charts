@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildCrosshairChartOptions } from './core/crosshairSettings';
-import { normalizeFibToolConfigs } from './core/fibDrawings';
 import { getMockCandleDataForSymbol } from './core/mockCandleData';
 import { TIMEFRAME_CONFIGS } from './core/timeframes';
 import { LAYOUT_OPTIONS } from './data/layoutConfigs';
 import { DEFAULT_FUTURES_SYMBOL } from './data/futuresSymbols';
 import { useSavedCrosshairSettings } from './hooks/useSavedCrosshairSettings';
 import { useSavedDrawings } from './hooks/useSavedDrawings';
+import { useDrawingKeyboardShortcuts } from './hooks/useDrawingKeyboardShortcuts';
+import { useDrawingPreferences } from './hooks/useDrawingPreferences';
 import { useSavedLayout } from './hooks/useSavedLayout';
 import { useSavedTimeframe } from './hooks/useSavedTimeframe';
 import { useTradovateMarketData } from './hooks/useTradovateMarketData';
@@ -45,11 +46,11 @@ function App() {
     selectedCount: 0,
     magnetStrength: 35,
   });
-  const [fibToolConfigs, setFibToolConfigs] = useState(() => normalizeFibToolConfigs());
   const { activeLayout, activeLayoutId, selectLayout } = useSavedLayout();
   const { activeTimeframeId, selectTimeframe } = useSavedTimeframe();
   const { crosshairSettings, updateLineColor, updateLineOpacity } = useSavedCrosshairSettings();
   const { activeDrawings, setActiveDrawings } = useSavedDrawings(activeSymbol.contract);
+  const { fibToolConfigs, magnetStrength, updateFibToolConfig, setMagnetStrength } = useDrawingPreferences();
   const crosshairChartOptions = useMemo(
     () => buildCrosshairChartOptions(crosshairSettings),
     [crosshairSettings],
@@ -92,7 +93,12 @@ function App() {
     }
 
     setActiveSymbol(nextSymbol);
+    setDesktopSearchValue('');
+    setMobileSearchValue('');
     setActiveDrawingTool(null);
+    if (activeLayout.mobile.sheet.enabled) {
+      setMobileSheetState(MOBILE_SHEET_STATES.COLLAPSED);
+    }
   };
 
   const onSheetPointerDown = (event) => {
@@ -168,25 +174,8 @@ function App() {
     );
   };
 
-  const onFibConfigChange = (toolType, patch) => {
-    setFibToolConfigs((currentConfigs) =>
-      normalizeFibToolConfigs({
-        ...currentConfigs,
-        [toolType]: {
-          ...currentConfigs[toolType],
-          ...patch,
-        },
-      }),
-    );
-  };
-
-  const onDrawingToolbarAction = (action, payload) => {
+  const runChartAction = useCallback((action, payload) => {
     const chartApi = chartApiRef.current;
-    if (action === 'setTool') {
-      setActiveDrawingTool(payload);
-      return;
-    }
-
     if (!chartApi) {
       return;
     }
@@ -199,6 +188,31 @@ function App() {
     if (action === 'front') chartApi.bringSelectionToFront?.();
     if (action === 'back') chartApi.sendSelectionToBack?.();
     if (action === 'magnet') chartApi.setMagnetStrength?.(payload);
+  }, []);
+
+  const onDeleteShortcut = useCallback(() => runChartAction('delete'), [runChartAction]);
+  const onUndoShortcut = useCallback(() => runChartAction('undo'), [runChartAction]);
+  const onRedoShortcut = useCallback(() => runChartAction('redo'), [runChartAction]);
+  const onCancelDrawingTool = useCallback(() => setActiveDrawingTool(null), []);
+
+  useDrawingKeyboardShortcuts({
+    onDelete: onDeleteShortcut,
+    onUndo: onUndoShortcut,
+    onRedo: onRedoShortcut,
+    onCancelTool: onCancelDrawingTool,
+  });
+
+  const onDrawingToolbarAction = (action, payload) => {
+    if (action === 'setTool') {
+      setActiveDrawingTool(payload);
+      return;
+    }
+
+    if (action === 'magnet') {
+      setMagnetStrength(payload);
+    }
+
+    runChartAction(action, payload);
   };
 
   return (
@@ -211,6 +225,7 @@ function App() {
           drawingTool={activeDrawingTool}
           fibToolConfigs={fibToolConfigs}
           fibDrawings={activeDrawings}
+          magnetStrength={magnetStrength}
           onFibDrawingsChange={setActiveDrawings}
           onDrawingInteractionStateChange={setDrawingInteractionState}
         />
@@ -261,7 +276,7 @@ function App() {
             activeTool={activeDrawingTool}
             toolConfigs={fibToolConfigs}
             onActivateTool={setActiveDrawingTool}
-            onConfigChange={onFibConfigChange}
+            onConfigChange={updateFibToolConfig}
             compact
           />
         </div>
@@ -312,7 +327,7 @@ function App() {
               activeTool={activeDrawingTool}
               toolConfigs={fibToolConfigs}
               onActivateTool={setActiveDrawingTool}
-              onConfigChange={onFibConfigChange}
+              onConfigChange={updateFibToolConfig}
             />
             <CrosshairSettingsPanel
               idPrefix="mobile-crosshair"
@@ -347,7 +362,7 @@ function App() {
               activeTool={activeDrawingTool}
               toolConfigs={fibToolConfigs}
               onActivateTool={setActiveDrawingTool}
-              onConfigChange={onFibConfigChange}
+              onConfigChange={updateFibToolConfig}
               compact
             />
           </div>
