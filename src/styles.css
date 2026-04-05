@@ -63,9 +63,32 @@ body,
 
 .panel-card ul {
   margin: 0;
-  padding-left: 18px;
+  padding-left: 0;
+  list-style: none;
   display: grid;
   gap: 6px;
+}
+
+.watchlist-symbol {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #d1d5db;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.watchlist-symbol:hover {
+  background: rgba(31, 41, 55, 0.65);
+}
+
+.watchlist-symbol--active {
+  color: #f9fafb;
+  border-color: #374151;
+  background: rgba(31, 41, 55, 0.75);
 }
 
 .bottom-sheet,
@@ -78,6 +101,11 @@ body,
   width: 100%;
   height: 100%;
   background: #0b0e13;
+  transition: opacity 220ms ease;
+}
+
+.chart-root--symbol-transition {
+  opacity: 0.82;
 }
 
 .fib-overlay-canvas {

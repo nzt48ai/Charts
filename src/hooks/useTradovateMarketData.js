@@ -22,7 +22,12 @@ export function useTradovateMarketData(
 
   useEffect(() => {
     candleEngineRef.current = createCandleEngine({ interval: config.interval, seedCandles: seedData });
-  }, [config.interval, seedData]);
+
+    if (chartApiRef.current?.isReady()) {
+      chartApiRef.current.setData(candleEngineRef.current.getCandles());
+      chartApiRef.current.fitContent();
+    }
+  }, [chartApiRef, config.interval, config.symbol, seedData]);
 
   useEffect(() => {
     let isDisposed = false;
