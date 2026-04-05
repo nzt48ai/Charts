@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { createCandlestickChart } from '../engine/createCandlestickChart';
+import { createFibOverlay } from '../engine/createFibOverlay';
 import { useChartResize } from '../hooks/useChartResize';
 
 const Chart = forwardRef(function Chart({ initialData = [] }, ref) {
@@ -13,6 +14,11 @@ const Chart = forwardRef(function Chart({ initialData = [] }, ref) {
     }
 
     const { chart, candlestickSeries } = createCandlestickChart(containerRef.current);
+    const fibOverlay = createFibOverlay({
+      container: containerRef.current,
+      chart,
+      series: candlestickSeries,
+    });
 
     chartRef.current = chart;
     seriesRef.current = candlestickSeries;
@@ -23,6 +29,7 @@ const Chart = forwardRef(function Chart({ initialData = [] }, ref) {
     }
 
     return () => {
+      fibOverlay.destroy();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -68,7 +75,7 @@ const Chart = forwardRef(function Chart({ initialData = [] }, ref) {
     []
   );
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%', background: '#0b0e13' }} />;
+  return <div ref={containerRef} className="chart-root" />;
 });
 
 export default Chart;
