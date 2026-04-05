@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { buildCrosshairChartOptions } from './core/crosshairSettings';
+import { FIB_DRAWING_TYPES, normalizeFibToolConfigs } from './core/fibDrawings';
 import { getMockCandleDataForSymbol } from './core/mockCandleData';
-import { DEFAULT_FUTURES_SYMBOL } from './data/futuresSymbols';
 import { TIMEFRAME_CONFIGS } from './core/timeframes';
 import { LAYOUT_OPTIONS } from './data/layoutConfigs';
-import { useSavedLayout } from './hooks/useSavedLayout';
+import { DEFAULT_FUTURES_SYMBOL } from './data/futuresSymbols';
 import { useSavedCrosshairSettings } from './hooks/useSavedCrosshairSettings';
+import { useSavedDrawings } from './hooks/useSavedDrawings';
+import { useSavedLayout } from './hooks/useSavedLayout';
 import { useSavedTimeframe } from './hooks/useSavedTimeframe';
 import { useTradovateMarketData } from './hooks/useTradovateMarketData';
-import { buildCrosshairChartOptions } from './core/crosshairSettings';
 import Chart from './ui/Chart';
 import CrosshairSettingsPanel from './ui/CrosshairSettingsPanel';
+import FibToolPanel from './ui/FibToolPanel';
 import LayoutSwitcher from './ui/LayoutSwitcher';
 import SidePanel from './ui/SidePanel';
 import SymbolSearch from './ui/SymbolSearch';
@@ -34,9 +37,12 @@ function App() {
   const [activeSymbol, setActiveSymbol] = useState(DEFAULT_FUTURES_SYMBOL);
   const [desktopSearchValue, setDesktopSearchValue] = useState('');
   const [mobileSearchValue, setMobileSearchValue] = useState('');
+  const [activeDrawingTool, setActiveDrawingTool] = useState(null);
+  const [fibToolConfigs, setFibToolConfigs] = useState(() => normalizeFibToolConfigs());
   const { activeLayout, activeLayoutId, selectLayout } = useSavedLayout();
   const { activeTimeframeId, selectTimeframe } = useSavedTimeframe();
   const { crosshairSettings, updateLineColor, updateLineOpacity } = useSavedCrosshairSettings();
+  const { activeDrawings, setActiveDrawings } = useSavedDrawings(activeSymbol.contract);
   const crosshairChartOptions = useMemo(
     () => buildCrosshairChartOptions(crosshairSettings),
     [crosshairSettings],
@@ -79,6 +85,7 @@ function App() {
     }
 
     setActiveSymbol(nextSymbol);
+    setActiveDrawingTool(null);
   };
 
   const onSheetPointerDown = (event) => {
@@ -154,10 +161,30 @@ function App() {
     );
   };
 
+  const onFibConfigChange = (toolType, patch) => {
+    setFibToolConfigs((currentConfigs) =>
+      normalizeFibToolConfigs({
+        ...currentConfigs,
+        [toolType]: {
+          ...currentConfigs[toolType],
+          ...patch,
+        },
+      }),
+    );
+  };
+
   return (
     <main className={`app-shell app-shell--${activeLayoutId}`}>
       <section className={`chart-panel ${activeLayout.desktop.chart.className} ${activeLayout.mobile.chart.className}`}>
-        <Chart ref={chartApiRef} initialData={seedData} chartOptions={crosshairChartOptions} />
+        <Chart
+          ref={chartApiRef}
+          initialData={seedData}
+          chartOptions={crosshairChartOptions}
+          drawingTool={activeDrawingTool}
+          fibToolConfigs={fibToolConfigs}
+          fibDrawings={activeDrawings}
+          onFibDrawingsChange={setActiveDrawings}
+        />
 
         {activeLayout.desktop.searchSurface.visible ? (
           <div className="desktop-symbol-search" aria-label="Desktop symbol search">
@@ -195,6 +222,17 @@ function App() {
             settings={crosshairSettings}
             onColorChange={updateLineColor}
             onOpacityChange={updateLineOpacity}
+            compact
+          />
+        </div>
+
+        <div className="desktop-fib-tools">
+          <FibToolPanel
+            idPrefix="desktop-fib"
+            activeTool={activeDrawingTool}
+            toolConfigs={fibToolConfigs}
+            onActivateTool={setActiveDrawingTool}
+            onConfigChange={onFibConfigChange}
             compact
           />
         </div>
@@ -240,6 +278,13 @@ function App() {
               activeLayoutId={activeLayoutId}
               onSelectLayout={selectLayout}
             />
+            <FibToolPanel
+              idPrefix="mobile-fib"
+              activeTool={activeDrawingTool}
+              toolConfigs={fibToolConfigs}
+              onActivateTool={setActiveDrawingTool}
+              onConfigChange={onFibConfigChange}
+            />
             <CrosshairSettingsPanel
               idPrefix="mobile-crosshair"
               settings={crosshairSettings}
@@ -267,6 +312,16 @@ function App() {
               compact
             />
           </div>
+          <div className="mobile-fib-tools">
+            <FibToolPanel
+              idPrefix="mobile-floating-fib"
+              activeTool={activeDrawingTool}
+              toolConfigs={fibToolConfigs}
+              onActivateTool={setActiveDrawingTool}
+              onConfigChange={onFibConfigChange}
+              compact
+            />
+          </div>
         </>
       )}
 
@@ -277,14 +332,31 @@ function App() {
           }`}
           aria-label="Quick actions"
         >
-          <button type="button" aria-label="Trendline tool" title="Trendline tool">
-            ╱
+          <button
+            type="button"
+            className={activeDrawingTool === FIB_DRAWING_TYPES.FIB_PRICE ? 'is-active' : ''}
+            aria-label="Fibonacci price tool"
+            title="Fibonacci price tool"
+            onClick={() =>
+              setActiveDrawingTool((current) =>
+                current === FIB_DRAWING_TYPES.FIB_PRICE ? null : FIB_DRAWING_TYPES.FIB_PRICE,
+              )
+            }
+          >
+            P
           </button>
-          <button type="button" aria-label="Fibonacci tool" title="Fibonacci tool">
-            ƒ
-          </button>
-          <button type="button" aria-label="Crosshair tool" title="Crosshair tool">
-            ⊕
+          <button
+            type="button"
+            className={activeDrawingTool === FIB_DRAWING_TYPES.FIB_TIME ? 'is-active' : ''}
+            aria-label="Fibonacci time tool"
+            title="Fibonacci time tool"
+            onClick={() =>
+              setActiveDrawingTool((current) =>
+                current === FIB_DRAWING_TYPES.FIB_TIME ? null : FIB_DRAWING_TYPES.FIB_TIME,
+              )
+            }
+          >
+            T
           </button>
         </nav>
       ) : null}
