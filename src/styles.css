@@ -141,7 +141,15 @@ body,
   z-index: 8;
 }
 
-.mobile-layout-switcher {
+.desktop-timeframe-switcher {
+  position: absolute;
+  top: calc(var(--space-3) + 64px);
+  right: var(--space-3);
+  z-index: 8;
+}
+
+.mobile-layout-switcher,
+.mobile-timeframe-switcher {
   display: none;
 }
 
@@ -183,6 +191,48 @@ body,
 }
 
 .layout-switcher__option--active {
+  border-color: rgba(148, 163, 184, 0.48);
+  background: rgba(51, 65, 85, 0.58);
+}
+
+.timeframe-switcher {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.18) 0%, rgba(15, 23, 35, 0.12) 100%), var(--panel-bg-strong);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  box-shadow: var(--panel-shadow);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.timeframe-switcher--compact {
+  padding: 8px;
+}
+
+.timeframe-switcher__label {
+  font-size: 0.8rem;
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.timeframe-switcher__options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.timeframe-switcher__option {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 35, 0.62);
+  color: rgba(226, 232, 240, 0.9);
+  min-height: 36px;
+  border-radius: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.timeframe-switcher__option--active {
   border-color: rgba(148, 163, 184, 0.48);
   background: rgba(51, 65, 85, 0.58);
 }
@@ -299,7 +349,8 @@ body,
   }
 
   .desktop-symbol-search,
-  .desktop-layout-switcher {
+  .desktop-layout-switcher,
+  .desktop-timeframe-switcher {
     display: none;
   }
 
@@ -385,7 +436,17 @@ body,
     z-index: 11;
   }
 
-  .mobile-layout-switcher .layout-switcher__options {
+  .mobile-timeframe-switcher {
+    display: block;
+    position: fixed;
+    left: var(--space-2);
+    right: var(--space-2);
+    bottom: calc(env(safe-area-inset-bottom) + 96px);
+    z-index: 11;
+  }
+
+  .mobile-layout-switcher .layout-switcher__options,
+  .mobile-timeframe-switcher .timeframe-switcher__options {
     justify-content: space-between;
   }
 

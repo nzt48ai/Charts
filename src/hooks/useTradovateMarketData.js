@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef } from 'react';
 import { createCandleEngine } from '../core/candleEngine';
 import { extractQuotePayload, priceFromQuotePayload, resolveQuoteTimestamp } from '../core/marketData';
 
-export function useTradovateMarketData(
-  chartApiRef,
-  { seedData = [], symbol = 'ESM6', interval = '1m' } = {}
-) {
-  const candleEngineRef = useRef(createCandleEngine({ interval, seedCandles: seedData }));
+const MAX_TICK_BUFFER_SIZE = 12000;
+
+export function useTradovateMarketData(chartApiRef, { seedData = [], symbol = 'ESM6', timeframe = '1m' } = {}) {
+  const candleEngineRef = useRef(createCandleEngine({ timeframe, seedCandles: seedData }));
   const socketRef = useRef(null);
+  const tickBufferRef = useRef([]);
   const hasAppliedInitialFitRef = useRef(false);
 
   const config = useMemo(
@@ -15,22 +15,32 @@ export function useTradovateMarketData(
       endpoint: import.meta.env.VITE_TRADOVATE_MD_URL ?? 'wss://md.tradovateapi.com/v1/websocket',
       token: import.meta.env.VITE_TRADOVATE_ACCESS_TOKEN,
       symbol: import.meta.env.VITE_TRADOVATE_SYMBOL ?? symbol,
-      interval,
+      timeframe,
     }),
-    [interval, symbol]
+    [symbol, timeframe]
   );
 
   useEffect(() => {
-    const chartApi = chartApiRef.current;
+    tickBufferRef.current = [];
+  }, [config.symbol]);
 
-    candleEngineRef.current = createCandleEngine({ interval: config.interval, seedCandles: seedData });
+  useEffect(() => {
+    const chartApi = chartApiRef.current;
+    const rebuiltCandles = candleEngineRef.current.reset({
+      timeframe: config.timeframe,
+      seedCandles: seedData,
+    });
+
+    for (const tick of tickBufferRef.current) {
+      candleEngineRef.current.upsertFromTick(tick);
+    }
 
     if (!chartApi?.isReady()) {
       return;
     }
 
     const visibleRange = chartApi.getVisibleLogicalRange?.();
-    chartApi.setData(candleEngineRef.current.getCandles());
+    chartApi.setData(candleEngineRef.current.getCandles() ?? rebuiltCandles);
 
     if (visibleRange) {
       chartApi.setVisibleLogicalRange?.(visibleRange);
@@ -41,7 +51,7 @@ export function useTradovateMarketData(
       chartApi.fitContent();
       hasAppliedInitialFitRef.current = true;
     }
-  }, [chartApiRef, config.interval, config.symbol, seedData]);
+  }, [chartApiRef, config.symbol, config.timeframe, seedData]);
 
   useEffect(() => {
     let isDisposed = false;
@@ -88,11 +98,18 @@ export function useTradovateMarketData(
             return;
           }
 
-          const ts = resolveQuoteTimestamp(quotePayload);
-          const candleUpdate = candleEngineRef.current.upsertFromTick({
+          const tick = {
             price: nextPrice,
-            timestamp: Number(ts),
-          });
+            timestamp: Number(resolveQuoteTimestamp(quotePayload)),
+          };
+
+          tickBufferRef.current.push(tick);
+
+          if (tickBufferRef.current.length > MAX_TICK_BUFFER_SIZE) {
+            tickBufferRef.current.shift();
+          }
+
+          const candleUpdate = candleEngineRef.current.upsertFromTick(tick);
 
           if (candleUpdate) {
             chartApiRef.current?.update(candleUpdate);
@@ -120,7 +137,7 @@ export function useTradovateMarketData(
 
       socketRef.current = null;
     };
-  }, [chartApiRef, config]);
+  }, [chartApiRef, config.endpoint, config.symbol, config.token]);
 
   return { candleEngineRef, socketRef };
 }

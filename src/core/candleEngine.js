@@ -1,68 +1,82 @@
-const SUPPORTED_INTERVALS_SECONDS = new Set([1, 5, 60]);
+import { getTimeframeConfig } from './timeframes';
 
 function normalizeTimestamp(epochMillis, intervalSeconds) {
   const epochSeconds = Math.floor(epochMillis / 1000);
   return Math.floor(epochSeconds / intervalSeconds) * intervalSeconds;
 }
 
-function parseIntervalSeconds(interval) {
-  if (typeof interval === 'number' && Number.isFinite(interval)) {
-    return interval;
+function toEpochMillis(rawTime) {
+  if (typeof rawTime === 'number' && Number.isFinite(rawTime)) {
+    return rawTime > 10_000_000_000 ? rawTime : rawTime * 1000;
   }
 
-  if (typeof interval === 'string') {
-    const normalized = interval.trim().toLowerCase();
-
-    if (normalized === '1s') {
-      return 1;
-    }
-
-    if (normalized === '5s') {
-      return 5;
-    }
-
-    if (normalized === '1m') {
-      return 60;
-    }
-
-    const numericValue = Number(normalized);
-    if (Number.isFinite(numericValue)) {
-      return numericValue;
+  if (typeof rawTime === 'string') {
+    const parsed = Date.parse(rawTime);
+    if (Number.isFinite(parsed)) {
+      return parsed;
     }
   }
 
-  throw new Error(`Unsupported interval format: ${String(interval)}`);
+  return null;
 }
 
-function assertSupportedInterval(intervalSeconds) {
-  if (!SUPPORTED_INTERVALS_SECONDS.has(intervalSeconds)) {
-    throw new Error(
-      `Unsupported interval: ${intervalSeconds}s. Supported intervals are 1s, 5s, and 1m.`
-    );
+function aggregateCandles(seedCandles, intervalSeconds) {
+  const aggregated = [];
+
+  for (const seedCandle of seedCandles) {
+    const epochMillis = toEpochMillis(seedCandle.time);
+
+    if (!Number.isFinite(epochMillis)) {
+      continue;
+    }
+
+    const bucketTime = normalizeTimestamp(epochMillis, intervalSeconds);
+    const candle = {
+      time: bucketTime,
+      open: Number(seedCandle.open),
+      high: Number(seedCandle.high),
+      low: Number(seedCandle.low),
+      close: Number(seedCandle.close),
+    };
+
+    if (![candle.open, candle.high, candle.low, candle.close].every(Number.isFinite)) {
+      continue;
+    }
+
+    const previousCandle = aggregated[aggregated.length - 1];
+
+    if (!previousCandle || previousCandle.time !== bucketTime) {
+      aggregated.push(candle);
+      continue;
+    }
+
+    previousCandle.high = Math.max(previousCandle.high, candle.high);
+    previousCandle.low = Math.min(previousCandle.low, candle.low);
+    previousCandle.close = candle.close;
   }
+
+  return aggregated;
 }
 
-export function createCandleEngine({ interval = 60, seedCandles = [] } = {}) {
-  const intervalSeconds = parseIntervalSeconds(interval);
-  assertSupportedInterval(intervalSeconds);
-
-  const candles = seedCandles.map((candle) => ({ ...candle }));
+export function createCandleEngine({ timeframe = '1m', seedCandles = [] } = {}) {
+  let timeframeConfig = getTimeframeConfig(timeframe);
+  let candles = aggregateCandles(seedCandles, timeframeConfig.seconds);
 
   const upsertFromTick = ({ price, timestamp }) => {
     if (!Number.isFinite(price)) {
       return null;
     }
 
-    const bucketTime = normalizeTimestamp(Number(timestamp), intervalSeconds);
+    const bucketTime = normalizeTimestamp(Number(timestamp), timeframeConfig.seconds);
 
     if (!Number.isFinite(bucketTime)) {
       return null;
     }
 
     if (candles.length === 0) {
-      const seedCandle = { time: bucketTime, open: price, high: price, low: price, close: price };
-      candles.push(seedCandle);
-      return seedCandle;
+      const firstCandle = { time: bucketTime, open: price, high: price, low: price, close: price };
+      candles.push(firstCandle);
+      return firstCandle;
     }
 
     const lastCandle = candles[candles.length - 1];
@@ -86,9 +100,21 @@ export function createCandleEngine({ interval = 60, seedCandles = [] } = {}) {
     return { ...lastCandle };
   };
 
+  const reset = ({ timeframe: nextTimeframe = timeframeConfig.id, seedCandles: nextSeedCandles = [] } = {}) => {
+    timeframeConfig = getTimeframeConfig(nextTimeframe);
+    candles = aggregateCandles(nextSeedCandles, timeframeConfig.seconds);
+    return candles;
+  };
+
   return {
-    intervalSeconds,
+    get timeframeId() {
+      return timeframeConfig.id;
+    },
+    get intervalSeconds() {
+      return timeframeConfig.seconds;
+    },
     getCandles: () => candles,
+    reset,
     upsertFromTick,
   };
 }
