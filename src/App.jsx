@@ -1,40 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
-import { mockCandleData } from './core/mockCandleData';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { getMockCandleDataForSymbol } from './core/mockCandleData';
+import { DEFAULT_FUTURES_SYMBOL } from './data/futuresSymbols';
 import { useTradovateMarketData } from './hooks/useTradovateMarketData';
 import Chart from './ui/Chart';
+import SymbolSearch from './ui/SymbolSearch';
 
-const WATCHLIST_SYMBOLS = ['ESM6', 'NQM6', 'YMM6'];
 const MOBILE_SHEET_STATES = {
   COLLAPSED: 'collapsed',
   EXPANDED: 'expanded',
 };
-
-function SidePanelContent({ symbol, onSymbolSelect }) {
-  return (
-    <>
-      <div className="panel-card">
-        <h2>Watchlist</h2>
-        <ul>
-          {WATCHLIST_SYMBOLS.map((watchSymbol) => (
-            <li key={watchSymbol}>
-              <button
-                type="button"
-                className={`watchlist-symbol${watchSymbol === symbol ? ' watchlist-symbol--active' : ''}`}
-                onClick={() => onSymbolSelect(watchSymbol)}
-              >
-                {watchSymbol}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="panel-card">
-        <h2>Order Ticket</h2>
-        <p>Panel content can be replaced with your existing controls.</p>
-      </div>
-    </>
-  );
-}
 
 function App() {
   const chartApiRef = useRef(null);
@@ -42,28 +16,17 @@ function App() {
   const dragPointerIdRef = useRef(null);
   const dragStartYRef = useRef(0);
   const dragCurrentOffsetRef = useRef(0);
-  const [symbol, setSymbol] = useState(WATCHLIST_SYMBOLS[0]);
-  const [isSymbolTransitioning, setIsSymbolTransitioning] = useState(false);
+  const [activeSymbol, setActiveSymbol] = useState(DEFAULT_FUTURES_SYMBOL);
+  const [desktopSearchValue, setDesktopSearchValue] = useState('');
+  const [mobileSearchValue, setMobileSearchValue] = useState('');
   const [mobileSheetState, setMobileSheetState] = useState(MOBILE_SHEET_STATES.COLLAPSED);
 
+  const seedData = useMemo(() => getMockCandleDataForSymbol(activeSymbol.root), [activeSymbol.root]);
+
   useTradovateMarketData(chartApiRef, {
-    seedData: mockCandleData,
-    symbol,
+    seedData,
+    symbol: activeSymbol.contract,
   });
-
-  useEffect(() => {
-    if (!isSymbolTransitioning) {
-      return undefined;
-    }
-
-    const transitionTimer = window.setTimeout(() => {
-      setIsSymbolTransitioning(false);
-    }, 220);
-
-    return () => {
-      window.clearTimeout(transitionTimer);
-    };
-  }, [isSymbolTransitioning, symbol]);
 
   useEffect(() => {
     const sheetElement = mobileSheetRef.current;
@@ -79,12 +42,11 @@ function App() {
   }, [mobileSheetState]);
 
   const onSymbolSelect = (nextSymbol) => {
-    if (nextSymbol === symbol) {
+    if (nextSymbol.contract === activeSymbol.contract) {
       return;
     }
 
-    setIsSymbolTransitioning(true);
-    setSymbol(nextSymbol);
+    setActiveSymbol(nextSymbol);
   };
 
   const onSheetPointerDown = (event) => {
@@ -155,14 +117,28 @@ function App() {
   return (
     <main className="app-shell">
       <section className="chart-panel">
-        <Chart
-          ref={chartApiRef}
-          initialData={mockCandleData}
-          isSymbolTransitioning={isSymbolTransitioning}
-        />
+        <Chart ref={chartApiRef} initialData={seedData} />
+        <div className="desktop-symbol-search" aria-label="Desktop symbol search">
+          <SymbolSearch
+            inputId="desktop-symbol-search"
+            value={desktopSearchValue}
+            onValueChange={setDesktopSearchValue}
+            activeRoot={activeSymbol.root}
+            onSymbolSelect={onSymbolSelect}
+          />
+        </div>
       </section>
       <aside className="right-panel" aria-label="Chart tools panel">
-        <SidePanelContent symbol={symbol} onSymbolSelect={onSymbolSelect} />
+        <div className="panel-card">
+          <h2>Active Contract</h2>
+          <p>
+            {activeSymbol.root} · {activeSymbol.contract}
+          </p>
+        </div>
+        <div className="panel-card">
+          <h2>Order Ticket</h2>
+          <p>Panel content can be replaced with your existing controls.</p>
+        </div>
       </aside>
 
       <section
@@ -177,11 +153,18 @@ function App() {
         <header className="bottom-sheet__header">
           <button type="button" className="bottom-sheet__grab" onClick={toggleMobileSheet}>
             <span className="bottom-sheet__handle" />
-            <span className="bottom-sheet__title">Quick Access</span>
+            <span className="bottom-sheet__title">Symbol Search</span>
           </button>
         </header>
         <div className="bottom-sheet__content">
-          <SidePanelContent symbol={symbol} onSymbolSelect={onSymbolSelect} />
+          <SymbolSearch
+            mobile
+            inputId="mobile-symbol-search"
+            value={mobileSearchValue}
+            onValueChange={setMobileSearchValue}
+            activeRoot={activeSymbol.root}
+            onSymbolSelect={onSymbolSelect}
+          />
         </div>
       </section>
 
