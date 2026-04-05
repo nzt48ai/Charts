@@ -1,21 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { createCandleEngine } from '../core/candleEngine';
+import { extractQuotePayload, priceFromQuotePayload, resolveQuoteTimestamp } from '../core/marketData';
 
-function priceFromPayload(payload) {
-  if (typeof payload.last === 'number') {
-    return payload.last;
-  }
-
-  if (typeof payload.price === 'number') {
-    return payload.price;
-  }
-
-  if (typeof payload.bid === 'number' && typeof payload.ask === 'number') {
-    return (payload.bid + payload.ask) / 2;
-  }
-
-  return null;
-}
 
 export function useTradovateMarketData(
   chartApiRef,
@@ -77,14 +63,14 @@ export function useTradovateMarketData(
 
         try {
           const payload = JSON.parse(event.data);
-          const quotePayload = payload?.d ?? payload;
-          const nextPrice = priceFromPayload(quotePayload);
+          const quotePayload = extractQuotePayload(payload);
+          const nextPrice = priceFromQuotePayload(quotePayload);
 
           if (nextPrice === null) {
             return;
           }
 
-          const ts = quotePayload.timestamp ?? quotePayload.time ?? Date.now();
+          const ts = resolveQuoteTimestamp(quotePayload);
           const candleUpdate = candleEngineRef.current.upsertFromTick({
             price: nextPrice,
             timestamp: Number(ts),
