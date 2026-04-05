@@ -46,7 +46,15 @@ function snapshotState(drawings) {
   return cloneDrawings(drawings);
 }
 
-export function createFibOverlay({ container, chart, series, initialDrawings = [], onDrawingsChange, onInteractionStateChange }) {
+export function createFibOverlay({
+  container,
+  chart,
+  series,
+  initialDrawings = [],
+  initialMagnetStrength = 35,
+  onDrawingsChange,
+  onInteractionStateChange,
+}) {
   const canvas = createCanvas(container);
   const ctx = canvas.getContext('2d');
 
@@ -66,7 +74,7 @@ export function createFibOverlay({ container, chart, series, initialDrawings = [
   let hoveredHandle = null;
   let dragState = null;
   let snapPreview = null;
-  let magnetStrength = 35;
+  let magnetStrength = clamp(Number(initialMagnetStrength) || 35, 0, 100);
   let candles = [];
   let historyPast = [];
   let historyFuture = [];

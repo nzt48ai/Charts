@@ -21,19 +21,19 @@ function DrawingToolbar({ activeTool, interactionState, onAction, compact = fals
       <div className="drawing-toolbar__row">
         <ToolbarButton
           label="P"
-          title="Fibonacci price tool"
+          title="Fibonacci price tool (P)"
           active={activeTool === FIB_DRAWING_TYPES.FIB_PRICE}
           onClick={() => onAction('setTool', activeTool === FIB_DRAWING_TYPES.FIB_PRICE ? null : FIB_DRAWING_TYPES.FIB_PRICE)}
         />
         <ToolbarButton
           label="T"
-          title="Fibonacci time tool"
+          title="Fibonacci time tool (T)"
           active={activeTool === FIB_DRAWING_TYPES.FIB_TIME}
           onClick={() => onAction('setTool', activeTool === FIB_DRAWING_TYPES.FIB_TIME ? null : FIB_DRAWING_TYPES.FIB_TIME)}
         />
-        <ToolbarButton label="↶" title="Undo" onClick={() => onAction('undo')} disabled={!interactionState.canUndo} />
-        <ToolbarButton label="↷" title="Redo" onClick={() => onAction('redo')} disabled={!interactionState.canRedo} />
-        <ToolbarButton label="⌫" title="Delete selected" onClick={() => onAction('delete')} disabled={!interactionState.selectedCount} />
+        <ToolbarButton label="↶" title="Undo (Ctrl/Cmd+Z)" onClick={() => onAction('undo')} disabled={!interactionState.canUndo} />
+        <ToolbarButton label="↷" title="Redo (Ctrl/Cmd+Shift+Z)" onClick={() => onAction('redo')} disabled={!interactionState.canRedo} />
+        <ToolbarButton label="⌫" title="Delete selected (Delete/Backspace)" onClick={() => onAction('delete')} disabled={!interactionState.selectedCount} />
       </div>
       <div className="drawing-toolbar__row">
         <ToolbarButton label="Group" title="Group selected" onClick={() => onAction('group')} disabled={interactionState.selectedCount < 2} />
