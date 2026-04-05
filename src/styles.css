@@ -1,7 +1,18 @@
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  color: #e5e7eb;
+  color: #dbe4f0;
   background: #0b0e13;
+  --space-1: 8px;
+  --space-2: 12px;
+  --space-3: 16px;
+  --space-4: 20px;
+  --panel-radius: 14px;
+  --panel-border: rgba(203, 213, 225, 0.16);
+  --panel-bg: rgba(20, 27, 40, 0.48);
+  --panel-bg-strong: rgba(20, 27, 40, 0.64);
+  --panel-blur: 14px;
+  --panel-shadow: 0 12px 30px rgba(2, 6, 23, 0.22);
+  --panel-content-opacity: 0.9;
 }
 
 * {
@@ -21,43 +32,49 @@ body,
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 16px;
+  gap: var(--space-3);
   width: 100%;
   height: 100%;
-  padding: 16px;
+  padding: var(--space-3);
 }
 
 .chart-panel {
   width: 100%;
   height: 100%;
   min-height: 360px;
-  border-radius: 12px;
+  border-radius: var(--panel-radius);
   overflow: hidden;
-  border: 1px solid #1f2937;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: #0b0e13;
 }
 
 .right-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-2);
 }
 
 .panel-card {
-  border: 1px solid #1f2937;
-  border-radius: 12px;
-  background: #0f1723;
-  padding: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.18) 0%, rgba(15, 23, 35, 0.12) 100%), var(--panel-bg);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  box-shadow: var(--panel-shadow);
+  padding: var(--space-2);
 }
 
 .panel-card h2 {
-  margin: 0 0 10px;
+  margin: 0 0 var(--space-1);
   font-size: 0.95rem;
+  color: rgba(226, 232, 240, var(--panel-content-opacity));
+  font-weight: 500;
 }
 
 .panel-card p,
 .panel-card li {
   margin: 0;
-  color: #9ca3af;
+  color: rgba(148, 163, 184, var(--panel-content-opacity));
   font-size: 0.9rem;
 }
 
@@ -73,22 +90,22 @@ body,
   width: 100%;
   text-align: left;
   border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: #d1d5db;
-  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.12);
+  color: rgba(209, 213, 219, 0.86);
+  padding: var(--space-1) 10px;
   cursor: pointer;
   transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 .watchlist-symbol:hover {
-  background: rgba(31, 41, 55, 0.65);
+  background: rgba(30, 41, 59, 0.28);
 }
 
 .watchlist-symbol--active {
-  color: #f9fafb;
-  border-color: #374151;
-  background: rgba(31, 41, 55, 0.75);
+  color: rgba(248, 250, 252, 0.95);
+  border-color: rgba(148, 163, 184, 0.32);
+  background: rgba(51, 65, 85, 0.42);
 }
 
 .bottom-sheet,
@@ -142,18 +159,19 @@ body,
     z-index: 10;
     min-height: 160px;
     max-height: 45vh;
-    border-top: 1px solid #1f2937;
+    border-top: 1px solid var(--panel-border);
     border-radius: 16px 16px 0 0;
-    background: rgba(15, 23, 35, 0.96);
-    backdrop-filter: blur(6px);
-    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.4);
+    background: var(--panel-bg-strong);
+    backdrop-filter: blur(calc(var(--panel-blur) - 2px));
+    -webkit-backdrop-filter: blur(calc(var(--panel-blur) - 2px));
+    box-shadow: 0 -10px 24px rgba(2, 6, 23, 0.3);
   }
 
   .bottom-sheet__header {
     display: grid;
     justify-items: center;
     gap: 8px;
-    padding: 10px 12px 4px;
+    padding: var(--space-2) var(--space-2) 4px;
   }
 
   .bottom-sheet__handle {
@@ -166,11 +184,12 @@ body,
   .bottom-sheet__header h2 {
     margin: 0;
     font-size: 0.95rem;
+    color: rgba(226, 232, 240, var(--panel-content-opacity));
   }
 
   .bottom-sheet__content {
-    padding: 0 14px 14px;
-    color: #9ca3af;
+    padding: 0 var(--space-2) var(--space-2);
+    color: rgba(148, 163, 184, var(--panel-content-opacity));
     font-size: 0.9rem;
   }
 
@@ -178,18 +197,20 @@ body,
     display: grid;
     gap: 10px;
     position: fixed;
-    right: 16px;
-    bottom: calc(45vh + 16px);
+    right: var(--space-3);
+    bottom: calc(45vh + var(--space-3));
     z-index: 12;
   }
 
   .floating-actions button {
     width: 44px;
     height: 44px;
-    border: 1px solid #374151;
+    border: 1px solid var(--panel-border);
     border-radius: 50%;
-    background: rgba(15, 23, 35, 0.95);
-    color: #e5e7eb;
+    background: var(--panel-bg-strong);
+    backdrop-filter: blur(calc(var(--panel-blur) - 3px));
+    -webkit-backdrop-filter: blur(calc(var(--panel-blur) - 3px));
+    color: rgba(229, 231, 235, 0.9);
     font-size: 1.1rem;
     cursor: pointer;
   }
