@@ -1,8 +1,18 @@
 import { forwardRef } from 'react';
 import { useChartController } from '../hooks/useChartController';
 
-const Chart = forwardRef(function Chart({ initialData = [], chartOptions = null }, ref) {
-  const { containerRef } = useChartController(ref, initialData, chartOptions);
+const Chart = forwardRef(function Chart(
+  { initialData = [], chartOptions = null, drawingTool = null, fibToolConfigs = null, fibDrawings = [], onFibDrawingsChange },
+  ref,
+) {
+  const { containerRef } = useChartController(ref, {
+    initialData,
+    chartOptions,
+    drawingTool,
+    fibToolConfigs,
+    fibDrawings,
+    onFibDrawingsChange,
+  });
 
   return <div ref={containerRef} className="chart-root" />;
 });

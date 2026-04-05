@@ -536,3 +536,122 @@ body,
     bottom: calc(env(safe-area-inset-bottom) + 120px);
   }
 }
+
+.desktop-fib-tools {
+  position: absolute;
+  top: calc(var(--space-3) + 266px);
+  right: var(--space-3);
+  z-index: 8;
+}
+
+.mobile-fib-tools {
+  display: none;
+}
+
+.fib-tools {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--panel-radius);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.18) 0%, rgba(15, 23, 35, 0.12) 100%), var(--panel-bg-strong);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  box-shadow: var(--panel-shadow);
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.fib-tools--compact {
+  width: min(320px, calc(100vw - 2 * var(--space-3)));
+  padding: 8px;
+}
+
+.fib-tools__label {
+  font-size: 0.8rem;
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.fib-tools__buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.fib-tools__button {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 35, 0.62);
+  color: rgba(226, 232, 240, 0.9);
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.fib-tools__button--active,
+.floating-actions button.is-active {
+  border-color: rgba(148, 163, 184, 0.54);
+  background: rgba(51, 65, 85, 0.7);
+}
+
+.fib-tools__section {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  padding-top: 8px;
+}
+
+.fib-tools__section h3 {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: rgba(226, 232, 240, 0.92);
+}
+
+.fib-tools__row {
+  display: grid;
+  gap: 6px;
+}
+
+.fib-tools__row label {
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.fib-tools__row input[type='text'],
+.fib-tools__row select {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  min-height: 34px;
+  background: rgba(15, 23, 35, 0.72);
+  color: rgba(226, 232, 240, 0.9);
+  padding: 0 8px;
+}
+
+.fib-tools__row input[type='range'] {
+  width: 100%;
+  accent-color: #94a3b8;
+}
+
+.fib-tools__row--two {
+  grid-template-columns: 56px 84px 56px 1fr;
+  align-items: center;
+}
+
+.fib-tools__row--toggle {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .desktop-fib-tools {
+    display: none;
+  }
+
+  .mobile-fib-tools {
+    display: block;
+    position: fixed;
+    left: var(--space-2);
+    right: var(--space-2);
+    bottom: calc(env(safe-area-inset-bottom) + 170px);
+    z-index: 11;
+  }
+}

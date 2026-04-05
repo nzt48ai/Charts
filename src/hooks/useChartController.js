@@ -3,10 +3,14 @@ import { createCandlestickChart } from '../engine/createCandlestickChart';
 import { createFibOverlay } from '../engine/createFibOverlay';
 import { useChartResize } from './useChartResize';
 
-export function useChartController(forwardedRef, initialData, chartOptions) {
+export function useChartController(
+  forwardedRef,
+  { initialData, chartOptions, drawingTool, fibToolConfigs, fibDrawings, onFibDrawingsChange },
+) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
+  const fibOverlayRef = useRef(null);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -18,10 +22,13 @@ export function useChartController(forwardedRef, initialData, chartOptions) {
       container: containerRef.current,
       chart,
       series: candlestickSeries,
+      initialDrawings: fibDrawings,
+      onDrawingsChange: onFibDrawingsChange,
     });
 
     chartRef.current = chart;
     seriesRef.current = candlestickSeries;
+    fibOverlayRef.current = fibOverlay;
 
     if (initialData.length > 0) {
       candlestickSeries.setData(initialData);
@@ -33,6 +40,7 @@ export function useChartController(forwardedRef, initialData, chartOptions) {
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      fibOverlayRef.current = null;
     };
   }, []);
 
@@ -51,6 +59,22 @@ export function useChartController(forwardedRef, initialData, chartOptions) {
 
     chartRef.current.applyOptions(chartOptions);
   }, [chartOptions]);
+
+  useEffect(() => {
+    fibOverlayRef.current?.setDrawingTool(drawingTool);
+  }, [drawingTool]);
+
+  useEffect(() => {
+    if (!fibToolConfigs) {
+      return;
+    }
+
+    fibOverlayRef.current?.setToolConfigs(fibToolConfigs);
+  }, [fibToolConfigs]);
+
+  useEffect(() => {
+    fibOverlayRef.current?.setDrawings(fibDrawings);
+  }, [fibDrawings]);
 
   useChartResize(containerRef, chartRef);
 
@@ -101,7 +125,7 @@ export function useChartController(forwardedRef, initialData, chartOptions) {
         chartRef.current.applyOptions(options);
       },
     }),
-    []
+    [],
   );
 
   return { containerRef };

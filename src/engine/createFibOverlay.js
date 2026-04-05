@@ -1,13 +1,10 @@
-import { FIB_LEVELS, buildDomainPoint, clamp, resolveFibLevelY } from '../core/fibMath';
+import { buildDomainPoint, buildLineDashPattern, clamp, resolveFibLevelY, toRgba } from '../core/fibMath';
+import { FIB_DRAWING_TYPES, normalizeFibDrawings, normalizeFibToolConfigs } from '../core/fibDrawings';
 import { resolvePriceSnapStep, snapToStep } from '../core/snapMath';
 
-const COLORS = {
-  line: '#f59e0b',
-  level: 'rgba(245, 158, 11, 0.8)',
-  labelBg: 'rgba(11, 14, 19, 0.75)',
-  labelText: '#f9fafb',
-  anchorFill: '#0b0e13',
-  anchorStroke: '#f59e0b',
+const LABEL_COLORS = {
+  bg: 'rgba(11, 14, 19, 0.74)',
+  text: '#e2e8f0',
 };
 
 function createCanvas(container) {
@@ -18,7 +15,12 @@ function createCanvas(container) {
   return canvas;
 }
 
-export function createFibOverlay({ container, chart, series }) {
+function createDrawingId(type) {
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `${type}-${Date.now()}-${suffix}`;
+}
+
+export function createFibOverlay({ container, chart, series, initialDrawings = [], onDrawingsChange }) {
   const canvas = createCanvas(container);
   const ctx = canvas.getContext('2d');
 
@@ -26,14 +28,14 @@ export function createFibOverlay({ container, chart, series }) {
   let disposed = false;
   let isFrameQueued = false;
   let needsRender = true;
-  let activeAnchorIndex = null;
-  let activePointerId = null;
   let pendingPointerEvent = null;
   let canvasWidth = 0;
   let canvasHeight = 0;
   let canvasDpr = 0;
-
-  const anchors = [null, null];
+  let activeTool = null;
+  let toolConfigs = normalizeFibToolConfigs();
+  let drawings = normalizeFibDrawings(initialDrawings);
+  let draftDrawing = null;
 
   const resizeObserver = new ResizeObserver(() => {
     syncCanvasSize();
@@ -63,6 +65,10 @@ export function createFibOverlay({ container, chart, series }) {
     canvas.style.height = `${height}px`;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function emitDrawingsChange() {
+    onDrawingsChange?.(drawings);
   }
 
   function toCanvasPoint(anchor) {
@@ -105,46 +111,6 @@ export function createFibOverlay({ container, chart, series }) {
     return buildDomainPoint(time, snappedPrice);
   }
 
-  function ensureAnchors() {
-    if (anchors[0] && anchors[1]) {
-      return;
-    }
-
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-
-    if (!width || !height) {
-      return;
-    }
-
-    const start = toDomainPoint(width * 0.3, height * 0.25);
-    const end = toDomainPoint(width * 0.7, height * 0.75);
-
-    if (!start || !end) {
-      return;
-    }
-
-    anchors[0] = start;
-    anchors[1] = end;
-  }
-
-  function findAnchorIndex(x, y) {
-    const hitRadius = 12;
-
-    for (let i = 0; i < anchors.length; i += 1) {
-      const point = toCanvasPoint(anchors[i]);
-      if (!point) continue;
-
-      const dx = point.x - x;
-      const dy = point.y - y;
-      if (Math.hypot(dx, dy) <= hitRadius) {
-        return i;
-      }
-    }
-
-    return null;
-  }
-
   function drawLabel(text, x, y) {
     ctx.font = '12px Inter, system-ui, sans-serif';
     const paddingX = 6;
@@ -154,48 +120,115 @@ export function createFibOverlay({ container, chart, series }) {
     const boxWidth = textWidth + paddingX * 2;
     const boxHeight = 18;
 
-    ctx.fillStyle = COLORS.labelBg;
+    ctx.fillStyle = LABEL_COLORS.bg;
     ctx.fillRect(x, y - boxHeight + paddingY, boxWidth, boxHeight);
 
-    ctx.fillStyle = COLORS.labelText;
+    ctx.fillStyle = LABEL_COLORS.text;
     ctx.fillText(text, x + paddingX, y);
   }
 
-  function drawFib(start, end) {
+  function drawAnchors(start, end, color) {
+    [start, end].forEach((point) => {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(11, 14, 19, 0.92)';
+      ctx.fill();
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    });
+  }
+
+  function drawFibPrice(drawing, start, end) {
     const minX = Math.min(start.x, end.x);
     const maxX = Math.max(start.x, end.x);
     const deltaY = end.y - start.y;
+    const lineColor = toRgba(drawing.config.color, drawing.config.opacity);
 
-    ctx.strokeStyle = COLORS.level;
+    ctx.save();
     ctx.lineWidth = 1;
+    ctx.strokeStyle = lineColor;
+    ctx.setLineDash(buildLineDashPattern(drawing.config.lineStyle));
 
-    FIB_LEVELS.forEach((level) => {
+    drawing.config.levels.forEach((level) => {
       const y = resolveFibLevelY(start.y, deltaY, level);
-
       ctx.beginPath();
       ctx.moveTo(minX, y);
       ctx.lineTo(maxX, y);
       ctx.stroke();
 
-      drawLabel(`${(level * 100).toFixed(1)}%`, maxX + 8, y + 4);
+      if (drawing.config.showLabels) {
+        drawLabel(`${(level * 100).toFixed(1)}%`, maxX + 8, y + 4);
+      }
     });
 
-    ctx.strokeStyle = COLORS.line;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
-    ctx.stroke();
+    ctx.restore();
+    drawAnchors(start, end, lineColor);
+  }
 
-    [start, end].forEach((point) => {
+  function drawFibTime(drawing, start, end) {
+    const spanX = end.x - start.x;
+    const lineColor = toRgba(drawing.config.color, drawing.config.opacity);
+
+    ctx.save();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = lineColor;
+
+    drawing.config.levels.forEach((level) => {
+      const x = end.x + spanX * level;
+      if (x < 0 || x > canvas.clientWidth) {
+        return;
+      }
+
       ctx.beginPath();
-      ctx.arc(point.x, point.y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = COLORS.anchorFill;
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = COLORS.anchorStroke;
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.clientHeight);
       ctx.stroke();
+
+      if (drawing.config.showLabels) {
+        drawLabel(`${level.toFixed(3)}x`, x + 4, 18);
+      }
     });
+
+    ctx.restore();
+    drawAnchors(start, end, lineColor);
+  }
+
+  function drawDrawing(drawing) {
+    const start = toCanvasPoint(drawing.anchors[0]);
+    const end = toCanvasPoint(drawing.anchors[1]);
+
+    if (!start || !end) {
+      return;
+    }
+
+    if (drawing.type === FIB_DRAWING_TYPES.FIB_PRICE) {
+      drawFibPrice(drawing, start, end);
+      return;
+    }
+
+    if (drawing.type === FIB_DRAWING_TYPES.FIB_TIME) {
+      drawFibTime(drawing, start, end);
+    }
+  }
+
+  function updateDraftFromPointer() {
+    if (!draftDrawing || !pendingPointerEvent) {
+      return;
+    }
+
+    const point = toDomainPoint(pendingPointerEvent.x, pendingPointerEvent.y);
+    pendingPointerEvent = null;
+
+    if (!point) {
+      return;
+    }
+
+    draftDrawing = {
+      ...draftDrawing,
+      anchors: [draftDrawing.anchors[0], point],
+    };
+    needsRender = true;
   }
 
   function render() {
@@ -204,33 +237,15 @@ export function createFibOverlay({ container, chart, series }) {
     }
 
     needsRender = false;
-    ensureAnchors();
 
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
     ctx.clearRect(0, 0, width, height);
 
-    const start = toCanvasPoint(anchors[0]);
-    const end = toCanvasPoint(anchors[1]);
-
-    if (start && end) {
-      drawFib(start, end);
+    drawings.forEach(drawDrawing);
+    if (draftDrawing) {
+      drawDrawing(draftDrawing);
     }
-  }
-
-  function updateActiveAnchorFromPendingPointer() {
-    if (activeAnchorIndex == null || !pendingPointerEvent) {
-      return;
-    }
-
-    const point = toDomainPoint(pendingPointerEvent.x, pendingPointerEvent.y);
-    pendingPointerEvent = null;
-    if (!point) {
-      return;
-    }
-
-    anchors[activeAnchorIndex] = point;
-    needsRender = true;
   }
 
   function flushFrame() {
@@ -239,7 +254,7 @@ export function createFibOverlay({ container, chart, series }) {
       return;
     }
 
-    updateActiveAnchorFromPendingPointer();
+    updateDraftFromPointer();
     if (!needsRender) {
       return;
     }
@@ -258,30 +273,49 @@ export function createFibOverlay({ container, chart, series }) {
   }
 
   function onPointerDown(event) {
+    if (!activeTool) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
 
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+    const point = toDomainPoint(x, y);
 
-    const anchorIndex = findAnchorIndex(x, y);
-    if (anchorIndex == null) {
+    if (!point) {
       return;
     }
 
-    activeAnchorIndex = anchorIndex;
-    activePointerId = event.pointerId;
-    canvas.setPointerCapture(event.pointerId);
-    canvas.style.cursor = 'grabbing';
+    if (!draftDrawing) {
+      draftDrawing = {
+        id: createDrawingId(activeTool),
+        type: activeTool,
+        anchors: [point, point],
+        config: { ...toolConfigs[activeTool] },
+      };
+      canvas.style.cursor = 'crosshair';
+      scheduleRender();
+      return;
+    }
+
+    draftDrawing = {
+      ...draftDrawing,
+      anchors: [draftDrawing.anchors[0], point],
+    };
+
+    drawings = [...drawings, draftDrawing];
+    draftDrawing = null;
+    emitDrawingsChange();
     scheduleRender();
   }
 
   function onPointerMove(event) {
-    if (activeAnchorIndex == null || event.pointerId !== activePointerId) {
+    if (!activeTool || !draftDrawing) {
       return;
     }
-    event.preventDefault();
 
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -291,21 +325,9 @@ export function createFibOverlay({ container, chart, series }) {
     scheduleRender();
   }
 
-  function onPointerUp(event) {
-    if (activeAnchorIndex == null || event.pointerId !== activePointerId) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-
-    activeAnchorIndex = null;
-    activePointerId = null;
-    if (canvas.hasPointerCapture(event.pointerId)) {
-      canvas.releasePointerCapture(event.pointerId);
-    }
-    canvas.style.cursor = 'crosshair';
-    pendingPointerEvent = null;
-    scheduleRender();
+  function applyInteractivityState() {
+    canvas.style.pointerEvents = activeTool ? 'auto' : 'none';
+    canvas.style.cursor = activeTool ? 'crosshair' : 'default';
   }
 
   syncCanvasSize();
@@ -315,12 +337,27 @@ export function createFibOverlay({ container, chart, series }) {
 
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerup', onPointerUp);
-  canvas.addEventListener('pointercancel', onPointerUp);
 
+  applyInteractivityState();
   scheduleRender();
 
   return {
+    setDrawingTool(nextTool) {
+      activeTool = nextTool;
+      draftDrawing = null;
+      pendingPointerEvent = null;
+      applyInteractivityState();
+      scheduleRender();
+    },
+    setToolConfigs(nextConfigs) {
+      toolConfigs = normalizeFibToolConfigs(nextConfigs);
+      scheduleRender();
+    },
+    setDrawings(nextDrawings) {
+      drawings = normalizeFibDrawings(nextDrawings);
+      draftDrawing = null;
+      scheduleRender();
+    },
     destroy() {
       disposed = true;
       window.cancelAnimationFrame(frameId);
@@ -330,8 +367,6 @@ export function createFibOverlay({ container, chart, series }) {
 
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointercancel', onPointerUp);
 
       canvas.remove();
     },
