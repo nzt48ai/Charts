@@ -3,7 +3,7 @@ import { createCandlestickChart } from '../engine/createCandlestickChart';
 import { createFibOverlay } from '../engine/createFibOverlay';
 import { useChartResize } from './useChartResize';
 
-export function useChartController(forwardedRef, initialData) {
+export function useChartController(forwardedRef, initialData, chartOptions) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
@@ -43,6 +43,14 @@ export function useChartController(forwardedRef, initialData) {
 
     seriesRef.current.setData(initialData);
   }, [initialData]);
+
+  useEffect(() => {
+    if (!chartRef.current || !chartOptions) {
+      return;
+    }
+
+    chartRef.current.applyOptions(chartOptions);
+  }, [chartOptions]);
 
   useChartResize(containerRef, chartRef);
 
@@ -84,6 +92,13 @@ export function useChartController(forwardedRef, initialData) {
         }
 
         chartRef.current.timeScale().fitContent();
+      },
+      applyOptions: (options) => {
+        if (!chartRef.current || !options) {
+          return;
+        }
+
+        chartRef.current.applyOptions(options);
       },
     }),
     []
