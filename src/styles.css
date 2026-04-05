@@ -83,18 +83,20 @@ body,
   padding-left: 0;
   list-style: none;
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .watchlist-symbol {
   width: 100%;
   text-align: left;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 12px;
   background: rgba(30, 41, 59, 0.12);
   color: rgba(209, 213, 219, 0.86);
-  padding: var(--space-1) 10px;
+  padding: 14px 12px;
+  min-height: 48px;
   cursor: pointer;
+  touch-action: manipulation;
   transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
@@ -119,6 +121,7 @@ body,
   height: 100%;
   background: #0b0e13;
   transition: opacity 220ms ease;
+  touch-action: pan-x pan-y;
 }
 
 .chart-root--symbol-transition {
@@ -133,6 +136,10 @@ body,
 }
 
 @media (max-width: 900px) {
+  :root {
+    --panel-blur: 7px;
+  }
+
   .app-shell {
     display: block;
     padding: 0;
@@ -151,67 +158,90 @@ body,
   }
 
   .bottom-sheet {
+    --sheet-offset: 220px;
     display: block;
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: 10;
-    min-height: 160px;
-    max-height: 45vh;
+    max-height: 72vh;
     border-top: 1px solid var(--panel-border);
-    border-radius: 16px 16px 0 0;
-    background: var(--panel-bg-strong);
-    backdrop-filter: blur(calc(var(--panel-blur) - 2px));
-    -webkit-backdrop-filter: blur(calc(var(--panel-blur) - 2px));
-    box-shadow: 0 -10px 24px rgba(2, 6, 23, 0.3);
+    border-radius: 20px 20px 0 0;
+    background: rgba(15, 23, 35, 0.86);
+    backdrop-filter: blur(var(--panel-blur));
+    -webkit-backdrop-filter: blur(var(--panel-blur));
+    box-shadow: 0 -8px 20px rgba(2, 6, 23, 0.22);
+    transform: translateY(var(--sheet-offset));
+    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
+    touch-action: none;
+  }
+
+  .bottom-sheet--dragging {
+    transition: none;
   }
 
   .bottom-sheet__header {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-1) var(--space-2) 2px;
+  }
+
+  .bottom-sheet__grab {
+    border: 0;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: transparent;
+    color: rgba(226, 232, 240, var(--panel-content-opacity));
     display: grid;
     justify-items: center;
     gap: 8px;
-    padding: var(--space-2) var(--space-2) 4px;
+    min-height: 48px;
+    touch-action: manipulation;
   }
 
   .bottom-sheet__handle {
-    width: 42px;
-    height: 4px;
+    width: 44px;
+    height: 5px;
     border-radius: 999px;
-    background: #4b5563;
+    background: #64748b;
   }
 
-  .bottom-sheet__header h2 {
-    margin: 0;
-    font-size: 0.95rem;
-    color: rgba(226, 232, 240, var(--panel-content-opacity));
+  .bottom-sheet__title {
+    font-size: 0.9rem;
+    letter-spacing: 0.01em;
   }
 
   .bottom-sheet__content {
-    padding: 0 var(--space-2) var(--space-2);
-    color: rgba(148, 163, 184, var(--panel-content-opacity));
-    font-size: 0.9rem;
+    padding: 0 var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom));
+    display: grid;
+    gap: var(--space-2);
+    overflow-y: auto;
+    max-height: calc(72vh - 56px);
+    overscroll-behavior: contain;
   }
 
   .floating-actions {
     display: grid;
-    gap: 10px;
+    gap: 12px;
     position: fixed;
     right: var(--space-3);
-    bottom: calc(45vh + var(--space-3));
+    bottom: calc(280px + var(--space-3));
     z-index: 12;
   }
 
   .floating-actions button {
-    width: 44px;
-    height: 44px;
+    width: 56px;
+    height: 56px;
     border: 1px solid var(--panel-border);
-    border-radius: 50%;
-    background: var(--panel-bg-strong);
-    backdrop-filter: blur(calc(var(--panel-blur) - 3px));
-    -webkit-backdrop-filter: blur(calc(var(--panel-blur) - 3px));
-    color: rgba(229, 231, 235, 0.9);
-    font-size: 1.1rem;
+    border-radius: 18px;
+    background: rgba(15, 23, 35, 0.88);
+    backdrop-filter: blur(calc(var(--panel-blur) - 1px));
+    -webkit-backdrop-filter: blur(calc(var(--panel-blur) - 1px));
+    color: rgba(229, 231, 235, 0.95);
+    font-size: 1.2rem;
     cursor: pointer;
+    touch-action: manipulation;
   }
 }
