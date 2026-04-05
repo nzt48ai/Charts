@@ -293,7 +293,7 @@ body,
   width: 100%;
   height: 100%;
   background: #0b0e13;
-  touch-action: pan-x pan-y;
+  touch-action: pan-x pan-y pinch-zoom;
 }
 
 .fib-overlay-canvas {
@@ -301,6 +301,7 @@ body,
   inset: 0;
   z-index: 3;
   cursor: crosshair;
+  touch-action: pan-x pan-y pinch-zoom;
 }
 
 .symbol-search {
