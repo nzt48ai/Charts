@@ -23,18 +23,37 @@ export function createFibOverlay({ container, chart, series }) {
 
   let frameId = 0;
   let disposed = false;
+  let isFrameQueued = false;
+  let needsRender = true;
   let activeAnchorIndex = null;
+  let pendingPointerEvent = null;
+  let canvasWidth = 0;
+  let canvasHeight = 0;
+  let canvasDpr = 0;
 
   const anchors = [null, null];
 
   const resizeObserver = new ResizeObserver(() => {
     syncCanvasSize();
+    scheduleRender();
   });
+
+  const onTimeScaleChange = () => {
+    scheduleRender();
+  };
 
   function syncCanvasSize() {
     const width = container.clientWidth;
     const height = container.clientHeight;
     const dpr = window.devicePixelRatio || 1;
+
+    if (width === canvasWidth && height === canvasHeight && dpr === canvasDpr) {
+      return;
+    }
+
+    canvasWidth = width;
+    canvasHeight = height;
+    canvasDpr = dpr;
 
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
@@ -169,6 +188,7 @@ export function createFibOverlay({ container, chart, series }) {
       return;
     }
 
+    needsRender = false;
     ensureAnchors();
 
     const width = canvas.clientWidth;
@@ -181,8 +201,45 @@ export function createFibOverlay({ container, chart, series }) {
     if (start && end) {
       drawFib(start, end);
     }
+  }
 
-    frameId = window.requestAnimationFrame(render);
+  function updateActiveAnchorFromPendingPointer() {
+    if (activeAnchorIndex == null || !pendingPointerEvent) {
+      return;
+    }
+
+    const point = toDomainPoint(pendingPointerEvent.x, pendingPointerEvent.y);
+    pendingPointerEvent = null;
+    if (!point) {
+      return;
+    }
+
+    anchors[activeAnchorIndex] = point;
+    needsRender = true;
+  }
+
+  function flushFrame() {
+    isFrameQueued = false;
+    if (disposed) {
+      return;
+    }
+
+    updateActiveAnchorFromPendingPointer();
+    if (!needsRender) {
+      return;
+    }
+
+    render();
+  }
+
+  function scheduleRender() {
+    needsRender = true;
+    if (disposed || isFrameQueued) {
+      return;
+    }
+
+    isFrameQueued = true;
+    frameId = window.requestAnimationFrame(flushFrame);
   }
 
   function onPointerDown(event) {
@@ -197,6 +254,7 @@ export function createFibOverlay({ container, chart, series }) {
 
     activeAnchorIndex = anchorIndex;
     canvas.setPointerCapture(event.pointerId);
+    scheduleRender();
   }
 
   function onPointerMove(event) {
@@ -208,12 +266,8 @@ export function createFibOverlay({ container, chart, series }) {
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
 
-    const point = toDomainPoint(x, y);
-    if (!point) {
-      return;
-    }
-
-    anchors[activeAnchorIndex] = point;
+    pendingPointerEvent = { x, y };
+    scheduleRender();
   }
 
   function onPointerUp(event) {
@@ -225,23 +279,29 @@ export function createFibOverlay({ container, chart, series }) {
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId);
     }
+    pendingPointerEvent = null;
+    scheduleRender();
   }
 
   syncCanvasSize();
   resizeObserver.observe(container);
+  chart.timeScale().subscribeVisibleLogicalRangeChange(onTimeScaleChange);
+  chart.timeScale().subscribeVisibleTimeRangeChange(onTimeScaleChange);
 
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
 
-  frameId = window.requestAnimationFrame(render);
+  scheduleRender();
 
   return {
     destroy() {
       disposed = true;
       window.cancelAnimationFrame(frameId);
       resizeObserver.disconnect();
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(onTimeScaleChange);
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(onTimeScaleChange);
 
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
