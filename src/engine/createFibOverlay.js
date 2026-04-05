@@ -1,4 +1,5 @@
 import { FIB_LEVELS, buildDomainPoint, clamp, resolveFibLevelY } from '../core/fibMath';
+import { resolvePriceSnapStep, snapToStep } from '../core/snapMath';
 
 const COLORS = {
   line: '#f59e0b',
@@ -26,6 +27,7 @@ export function createFibOverlay({ container, chart, series }) {
   let isFrameQueued = false;
   let needsRender = true;
   let activeAnchorIndex = null;
+  let activePointerId = null;
   let pendingPointerEvent = null;
   let canvasWidth = 0;
   let canvasHeight = 0;
@@ -80,14 +82,27 @@ export function createFibOverlay({ container, chart, series }) {
     const clampedX = clamp(x, 0, canvas.clientWidth);
     const clampedY = clamp(y, 0, canvas.clientHeight);
 
-    const time = chart.timeScale().coordinateToTime(clampedX);
-    const price = series.coordinateToPrice(clampedY);
+    const timeScale = chart.timeScale();
+    const logical = timeScale.coordinateToLogical?.(clampedX);
+    const snappedLogical = Number.isFinite(logical) ? Math.round(logical) : null;
+    const snappedX =
+      snappedLogical == null ? clampedX : (timeScale.logicalToCoordinate?.(snappedLogical) ?? clampedX);
 
-    if (time == null || price == null || Number.isNaN(price)) {
+    const time = timeScale.coordinateToTime(snappedX);
+    const rawPrice = series.coordinateToPrice(clampedY);
+
+    if (time == null || rawPrice == null || Number.isNaN(rawPrice)) {
       return null;
     }
 
-    return buildDomainPoint(time, price);
+    const visibleRange = series.priceScale().getVisibleRange?.();
+    const priceStep = resolvePriceSnapStep({
+      minPrice: visibleRange?.from ?? rawPrice,
+      maxPrice: visibleRange?.to ?? rawPrice,
+    });
+    const snappedPrice = snapToStep(rawPrice, priceStep);
+
+    return buildDomainPoint(time, snappedPrice);
   }
 
   function ensureAnchors() {
@@ -243,6 +258,9 @@ export function createFibOverlay({ container, chart, series }) {
   }
 
   function onPointerDown(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -253,14 +271,17 @@ export function createFibOverlay({ container, chart, series }) {
     }
 
     activeAnchorIndex = anchorIndex;
+    activePointerId = event.pointerId;
     canvas.setPointerCapture(event.pointerId);
+    canvas.style.cursor = 'grabbing';
     scheduleRender();
   }
 
   function onPointerMove(event) {
-    if (activeAnchorIndex == null) {
+    if (activeAnchorIndex == null || event.pointerId !== activePointerId) {
       return;
     }
+    event.preventDefault();
 
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -271,14 +292,18 @@ export function createFibOverlay({ container, chart, series }) {
   }
 
   function onPointerUp(event) {
-    if (activeAnchorIndex == null) {
+    if (activeAnchorIndex == null || event.pointerId !== activePointerId) {
       return;
     }
+    event.preventDefault();
+    event.stopPropagation();
 
     activeAnchorIndex = null;
+    activePointerId = null;
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId);
     }
+    canvas.style.cursor = 'crosshair';
     pendingPointerEvent = null;
     scheduleRender();
   }
