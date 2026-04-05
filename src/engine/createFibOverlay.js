@@ -23,7 +23,7 @@ const HISTORY_LIMIT = 150;
 function createCanvas(container) {
   const canvas = document.createElement('canvas');
   canvas.className = 'fib-overlay-canvas';
-  canvas.style.touchAction = 'none';
+  canvas.style.touchAction = 'pan-x pan-y pinch-zoom';
   container.appendChild(canvas);
   return canvas;
 }
@@ -78,6 +78,8 @@ export function createFibOverlay({
   let candles = [];
   let historyPast = [];
   let historyFuture = [];
+  const activeTouchPointerIds = new Set();
+  let isMultiTouchGestureActive = false;
 
   const resizeObserver = new ResizeObserver(() => {
     syncCanvasSize();
@@ -567,6 +569,18 @@ export function createFibOverlay({
       return;
     }
 
+    if (event.pointerType === 'touch') {
+      activeTouchPointerIds.add(event.pointerId);
+      if (activeTouchPointerIds.size > 1) {
+        enableMultiTouchPassthrough();
+        return;
+      }
+    }
+
+    if (isMultiTouchGestureActive) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -671,6 +685,10 @@ export function createFibOverlay({
   }
 
   function onPointerMove(event) {
+    if (isMultiTouchGestureActive) {
+      return;
+    }
+
     const rect = canvas.getBoundingClientRect();
     const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
 
@@ -693,6 +711,17 @@ export function createFibOverlay({
   }
 
   function onPointerUp(event) {
+    if (event.pointerType === 'touch') {
+      activeTouchPointerIds.delete(event.pointerId);
+      if (activeTouchPointerIds.size <= 1) {
+        disableMultiTouchPassthrough();
+      }
+    }
+
+    if (isMultiTouchGestureActive) {
+      return;
+    }
+
     if (dragState) {
       dragState = null;
       snapPreview = null;
@@ -704,13 +733,63 @@ export function createFibOverlay({
   }
 
   function onPointerLeave() {
+    if (isMultiTouchGestureActive) {
+      return;
+    }
+
     if (!dragState && !activeTool) {
       clearHoverState();
       scheduleRender();
     }
   }
 
+  function onGlobalPointerEnd(event) {
+    if (event.pointerType !== 'touch') {
+      return;
+    }
+
+    activeTouchPointerIds.delete(event.pointerId);
+    if (activeTouchPointerIds.size <= 1) {
+      disableMultiTouchPassthrough();
+    }
+  }
+
+  function enableMultiTouchPassthrough() {
+    if (isMultiTouchGestureActive) {
+      return;
+    }
+
+    activeTouchPointerIds.forEach((pointerId) => {
+      canvas.releasePointerCapture?.(pointerId);
+    });
+
+    isMultiTouchGestureActive = true;
+    dragState = null;
+    hoveredHandle = null;
+    snapPreview = null;
+    pendingPointerEvent = null;
+    canvas.style.pointerEvents = 'none';
+    canvas.style.cursor = 'default';
+    scheduleRender();
+  }
+
+  function disableMultiTouchPassthrough() {
+    if (!isMultiTouchGestureActive) {
+      return;
+    }
+
+    isMultiTouchGestureActive = false;
+    canvas.style.pointerEvents = 'auto';
+    canvas.style.cursor = activeTool ? 'crosshair' : 'default';
+  }
+
   function applyInteractivityState() {
+    if (isMultiTouchGestureActive) {
+      canvas.style.pointerEvents = 'none';
+      canvas.style.cursor = 'default';
+      return;
+    }
+
     canvas.style.pointerEvents = 'auto';
     canvas.style.cursor = activeTool ? 'crosshair' : 'default';
   }
@@ -733,6 +812,8 @@ export function createFibOverlay({
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
   canvas.addEventListener('pointerleave', onPointerLeave);
+  window.addEventListener('pointerup', onGlobalPointerEnd, true);
+  window.addEventListener('pointercancel', onGlobalPointerEnd, true);
 
   applyInteractivityState();
   emitInteractionState();
@@ -851,6 +932,8 @@ export function createFibOverlay({
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('pointerleave', onPointerLeave);
+      window.removeEventListener('pointerup', onGlobalPointerEnd, true);
+      window.removeEventListener('pointercancel', onGlobalPointerEnd, true);
 
       canvas.remove();
     },

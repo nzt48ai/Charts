@@ -9,6 +9,17 @@ export const chartTheme = {
 };
 
 export const chartOptions = {
+  handleScroll: {
+    mouseWheel: true,
+    pressedMouseMove: true,
+    horzTouchDrag: true,
+    vertTouchDrag: true,
+  },
+  handleScale: {
+    axisPressedMouseMove: true,
+    mouseWheel: true,
+    pinch: true,
+  },
   layout: {
     background: { color: chartTheme.background },
     textColor: chartTheme.textColor,
