@@ -581,8 +581,10 @@ export function createFibOverlay({
       return;
     }
 
-    event.preventDefault();
-    event.stopPropagation();
+    if (event.pointerType !== 'touch') {
+      event.preventDefault();
+      event.stopPropagation();
+    }
 
     const rect = canvas.getBoundingClientRect();
     const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -644,7 +646,9 @@ export function createFibOverlay({
       };
 
       pushHistorySnapshot();
-      canvas.setPointerCapture(event.pointerId);
+      if (event.pointerType !== 'touch') {
+        canvas.setPointerCapture(event.pointerId);
+      }
       return;
     }
 
@@ -675,7 +679,9 @@ export function createFibOverlay({
       };
 
       pushHistorySnapshot();
-      canvas.setPointerCapture(event.pointerId);
+      if (event.pointerType !== 'touch') {
+        canvas.setPointerCapture(event.pointerId);
+      }
       return;
     }
 
@@ -754,6 +760,23 @@ export function createFibOverlay({
     }
   }
 
+  function onTouchStart(event) {
+    if (event.touches.length > 1) {
+      enableMultiTouchPassthrough();
+    }
+  }
+
+  function onTouchMove(event) {
+    if (event.touches.length > 1) {
+      enableMultiTouchPassthrough();
+      return;
+    }
+
+    if (event.touches.length === 0) {
+      disableMultiTouchPassthrough();
+    }
+  }
+
   function enableMultiTouchPassthrough() {
     if (isMultiTouchGestureActive) {
       return;
@@ -812,6 +835,8 @@ export function createFibOverlay({
   canvas.addEventListener('pointerup', onPointerUp);
   canvas.addEventListener('pointercancel', onPointerUp);
   canvas.addEventListener('pointerleave', onPointerLeave);
+  canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+  canvas.addEventListener('touchmove', onTouchMove, { passive: true });
   window.addEventListener('pointerup', onGlobalPointerEnd, true);
   window.addEventListener('pointercancel', onGlobalPointerEnd, true);
 
@@ -932,6 +957,8 @@ export function createFibOverlay({
       canvas.removeEventListener('pointerup', onPointerUp);
       canvas.removeEventListener('pointercancel', onPointerUp);
       canvas.removeEventListener('pointerleave', onPointerLeave);
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('pointerup', onGlobalPointerEnd, true);
       window.removeEventListener('pointercancel', onGlobalPointerEnd, true);
 

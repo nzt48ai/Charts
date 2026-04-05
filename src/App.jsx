@@ -106,7 +106,16 @@ function App() {
       return;
     }
 
+    const headerElement = event.target instanceof Element ? event.target.closest('.bottom-sheet__header') : null;
+    if (!headerElement) {
+      return;
+    }
+
     if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+
+    if (event.pointerType === 'touch' && !event.isPrimary) {
       return;
     }
 
